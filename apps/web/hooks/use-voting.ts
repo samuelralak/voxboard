@@ -71,6 +71,10 @@ export function useVoting(ids: string[], tallies?: Map<string, VoteTally>): Voti
     for (const s of mine.stale) {
       if (retracted.current.has(s.id) || !optimistic.has(s.targetId)) continue;
       retracted.current.add(s.id);
+      // Best-effort cleanup of a SUPERSEDED own-reaction. Intentionally un-scoped: `mine.stale` carries no
+      // coordinate, so this kind-5 has no `A` tag and the live `#A` deletions sub won't catch it — but it
+      // is harmless (latest-per-pubkey dedup already drops the superseded reaction from the score), and the
+      // SSR vote-deletion seed reconciles the orphan on the next load.
       void publish(buildDelete({ ids: [s.id], kinds: [KIND.Reaction] })).catch(() => {});
     }
   }, [mine.stale, optimistic, publish]);
@@ -119,7 +123,7 @@ export function useVoting(ids: string[], tallies?: Map<string, VoteTally>): Voti
             if (next === null) {
               if (existing) {
                 retracted.current.add(existing.id); // claim it so the cleanup effect won't re-delete
-                await publish(buildDelete({ ids: [existing.id], kinds: [KIND.Reaction] }));
+                await publish(buildDelete({ ids: [existing.id], kinds: [KIND.Reaction], scope: target.coordinate }));
                 published.current.delete(id);
               }
             } else {
@@ -132,7 +136,7 @@ export function useVoting(ids: string[], tallies?: Map<string, VoteTally>): Voti
               if (existing && existing.direction !== next) {
                 retracted.current.add(existing.id); // claim it so the cleanup effect won't re-delete
                 try {
-                  await publish(buildDelete({ ids: [existing.id], kinds: [KIND.Reaction] }));
+                  await publish(buildDelete({ ids: [existing.id], kinds: [KIND.Reaction], scope: target.coordinate }));
                 } catch {
                   // leave the orphan; the newer reaction still wins the tally
                 }

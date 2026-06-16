@@ -24,7 +24,7 @@ export function FeedRowContainer({ row, href, voting }: { row: IdeaRow; href: st
   const inNetwork = useWebOfTrust().isTrusted(row.idea.pubkey);
 
   const id = row.idea.id;
-  const target: VoteTarget = { id, pubkey: row.idea.pubkey, kind: KIND.Comment };
+  const target: VoteTarget = { id, pubkey: row.idea.pubkey, kind: KIND.Comment, coordinate: row.idea.coordinate };
 
   return (
     <FeedRow

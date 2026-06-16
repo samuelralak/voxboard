@@ -1,12 +1,11 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { useSubscribe } from "@nostr-dev-kit/react";
 import { NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
 import {
   KIND,
   deriveBoardView,
-  partitionBoardEvents,
   type Board,
   type BoardView,
   type NostrEvent,
@@ -30,25 +29,6 @@ import { dedupeById, ndkFilter, toNostrEvents } from "@/lib/nostr/event";
 // board from ever hitting relays.
 const SUB_OPTS = { closeOnEose: false, cacheUsage: NDKSubscriptionCacheUsage.CACHE_FIRST } as const;
 const EMPTY: NostrEvent[] = [];
-
-/**
- * Debounce a value. Used on the `#e` id-set keys so a hydration burst (ideas streaming in one by one)
- * coalesces into ONE re-subscribe after a quiet period instead of N. The first transition (empty → some
- * ids) is NOT delayed — that is driven by useSubscribe's own `!!filters` dep, so reactions/deletions
- * still open immediately; only subsequent GROWTH of the id-window is debounced. Lossless: NDK's
- * filterExistingEvents preserves already-received events across the re-subscribe, and the SSR seed covers
- * first paint regardless.
- */
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), ms);
-    return () => clearTimeout(timer);
-  }, [value, ms]);
-  return debounced;
-}
-
-const ID_SET_DEBOUNCE_MS = 250;
 
 export interface BoardSubscription {
   /** the authoritative board (kind 34550) for this scope */
@@ -109,38 +89,33 @@ export function BoardSubscriptionProvider({
   );
   const modEvents = useMemo(() => dedupeById(initialModeration, toNostrEvents(mod.events)), [initialModeration, mod.events]);
 
-  // Content ids that key the `#e` subs. CONSTRAINT: these MUST stay in the dependency array — react's
-  // useSubscribe captures the filter by closure and re-subscribes only when deps change, so keying on
-  // [coord] would freeze a growing `#e` window and silently miss reactions/deletions of later arrivals.
-  const parsed = useMemo(() => partitionBoardEvents(commentEvents), [commentEvents]);
-  const commentIds = useMemo(
-    () => [...parsed.ideas.map((i) => i.id), ...parsed.replies.map((r) => r.id)],
-    [parsed],
-  );
-  // Debounced so a hydration burst coalesces into one re-subscribe; the filter still uses the CURRENT
-  // commentIds (useSubscribe captures filters at effect-run time), and the empty→some transition still
-  // subscribes immediately via useSubscribe's own `!!filters` dep.
-  const commentIdKey = useDebounced(commentIds.join(","), ID_SET_DEBOUNCE_MS);
-
-  // 3. reactions for every idea AND reply (the idea page needs reply tallies too).
+  // 3. reactions (votes) for the whole board. Phase 9: Voxboard votes carry the board `A` tag, so this is
+  //    a STABLE coordinate-keyed sub — no growing `#e` id-set, no closure-capture hazard (the old
+  //    constraint that forced the id-set into the dep array). The SSR seed (initialVotes, queried
+  //    server-side by `#e`) covers the COMPLETE set (historical + cross-client + Voxboard) at first paint
+  //    AND on every reload. The live `#A` sub then carries new VOXBOARD votes (only Voxboard emits `A`).
+  //    ACCEPTED TRADE-OFF: a vote cast from another client (Amethyst, etc.) arrives LIVE without `A`, so
+  //    it is not seen until the next reload re-runs the `#e` seed; tallies stay correct, just stale-live.
+  //    (The feed seed covers IDEA votes; reply votes are seeded only on /d, fine since the feed doesn't
+  //    vote replies.)
   const reactions = useSubscribe(
-    commentIds.length > 0 ? [ndkFilter({ kinds: [KIND.Reaction], "#e": commentIds })] : false,
+    coord ? [ndkFilter({ kinds: [KIND.Reaction], "#A": [coord] })] : false,
     SUB_OPTS,
-    [commentIdKey],
+    [coord],
   );
   const reactionEvents = useMemo(() => dedupeById(initialVotes, toNostrEvents(reactions.events)), [initialVotes, reactions.events]);
 
-  // 4. deletions over the FULL candidate union (ideas+replies+labels+approvals+reactions) so a retraction
-  //    of ANY of them is honored on the first derive pass (deriveBoardView consumes the kind-5 events).
-  const deletionIds = useMemo(
-    () => [...commentIds, ...modEvents.map((e) => e.id), ...reactionEvents.map((e) => e.id)],
-    [commentIds, modEvents, reactionEvents],
-  );
-  const deletionKey = useDebounced(deletionIds.join(","), ID_SET_DEBOUNCE_MS);
+  // 4. deletions (NIP-09 retractions) for the whole board. Phase 9: a Voxboard retraction of board content
+  //    carries the board `A` tag (idea/reply deletes + vote retractions), so this is a stable coordinate
+  //    key too. CRITICAL: the SSR seed (initialDeletions) seeds retractions by `#e` over the content ids
+  //    AND the vote ids (server.ts third pass) — so a cross-client / pre-Phase-9 vote retraction, which
+  //    lacks `A` and is invisible to this live sub, still applies at first paint + reload; without that
+  //    seed the retracted vote would count forever. Same accepted live trade-off as votes (an untagged
+  //    retraction arriving LIVE shows only after the next reload). deriveBoardView consumes the kind-5s.
   const deletions = useSubscribe(
-    deletionIds.length > 0 ? [ndkFilter({ kinds: [KIND.Delete], "#e": deletionIds })] : false,
+    coord ? [ndkFilter({ kinds: [KIND.Delete], "#A": [coord] })] : false,
     SUB_OPTS,
-    [deletionKey],
+    [coord],
   );
   const deletionEvents = useMemo(() => dedupeById(initialDeletions, toNostrEvents(deletions.events)), [initialDeletions, deletions.events]);
 

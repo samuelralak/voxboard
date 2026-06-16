@@ -12,8 +12,10 @@ import { usePublish } from "./use-publish";
 export function useDelete() {
   const publish = usePublish();
   return useCallback(
-    async (id: string, kind: number) => {
-      await publish(buildDelete({ ids: [id], kinds: [kind] }));
+    async (id: string, kind: number, coordinate?: string) => {
+      // `scope` (the board coordinate) adds an `A` tag so the board's coordinate-keyed deletions
+      // subscription catches the retraction live (Phase 9). buildDelete drops it when undefined.
+      await publish(buildDelete({ ids: [id], kinds: [kind], scope: coordinate }));
     },
     [publish],
   );

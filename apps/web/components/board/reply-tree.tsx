@@ -115,7 +115,7 @@ function ReplyNode({
         {isMine ? (
           <DeleteButton
             onConfirm={async () => {
-              await del(reply.id, KIND.Comment);
+              await del(reply.id, KIND.Comment, reply.coordinate);
               onDeleted(reply.id);
             }}
           />

@@ -119,7 +119,7 @@ export function IdeaView({ ideaId, initialIdea }: { ideaId: string; initialIdea:
   const isOwner = Boolean(pubkey) && pubkey === idea?.pubkey;
   const onDeleteIdea = useCallback(async () => {
     if (!idea) return;
-    await del(idea.id, KIND.Comment);
+    await del(idea.id, KIND.Comment, idea.coordinate);
     router.push(board ? `/b/${boardNaddr(board.ref, board.relays.map((relay) => relay.url))}` : "/");
   }, [del, idea, board, router]);
 
@@ -211,8 +211,8 @@ export function IdeaView({ ideaId, initialIdea }: { ideaId: string; initialIdea:
         onCopyLink={onCopyLink}
         myVote={voting.myVote(ideaId)}
         scoreDelta={voting.scoreDelta(ideaId)}
-        onUp={() => voting.cast({ id: ideaId, pubkey: idea.pubkey, kind: KIND.Comment }, "up")}
-        onDown={() => voting.cast({ id: ideaId, pubkey: idea.pubkey, kind: KIND.Comment }, "down")}
+        onUp={() => voting.cast({ id: ideaId, pubkey: idea.pubkey, kind: KIND.Comment, coordinate: idea.coordinate }, "up")}
+        onDown={() => voting.cast({ id: ideaId, pubkey: idea.pubkey, kind: KIND.Comment, coordinate: idea.coordinate }, "down")}
         votingDisabled={voting.isPending(ideaId)}
         canDelete={isOwner}
         onDelete={onDeleteIdea}
