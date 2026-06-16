@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useSubscribe } from "@nostr-dev-kit/react";
 import { KIND, parseZapReceipt, zapTotalsByTarget, type ZapTotal } from "@voxboard/protocol";
 import { useDeletedIds } from "./use-deletions";
@@ -24,7 +24,12 @@ export function useZaps(ids: string[], authorByTarget: Map<string, string>): Map
 
   const events = useMemo(() => toNostrEvents(sub.events), [sub.events]);
   // The recipient/server can NIP-09 a receipt; honor that.
-  const hidden = useDeletedIds(events);
+  const liveHidden = useDeletedIds(events);
+  // useDeletedIds has no SSR seed here, so NDK can momentarily return an empty deleted set on a
+  // remount/re-subscribe; retain the last non-empty set so a retracted receipt does not flash back.
+  const lastHidden = useRef<Set<string>>(liveHidden);
+  if (liveHidden.size > 0) lastHidden.current = liveHidden;
+  const hidden = liveHidden.size > 0 ? liveHidden : lastHidden.current;
   const live = useMemo(() => events.filter((e) => !hidden.has(e.id)), [events, hidden]);
 
   // Resolve anchors ONLY for authors who actually received a (structurally valid) receipt — usually none.

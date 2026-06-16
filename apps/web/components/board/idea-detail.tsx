@@ -1,6 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Comment01Icon, Copy01Icon, FlashIcon, UserCheck01Icon } from "@hugeicons/core-free-icons";
 import type { Idea, Status, VoteTally } from "@voxboard/protocol";
+import { isHttpUrl } from "@voxboard/protocol";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Chip, InNetworkBadge, VerifiedChip } from "@/components/ui/chip";
@@ -145,7 +146,9 @@ export function IdeaDetail({
 
         {idea.images.length > 0 ? (
           <div className="mt-4 grid grid-cols-2 gap-2">
-            {idea.images.map((image) => (
+            {/* Re-check the scheme at the sink (parseImeta already filters, but keep the trust boundary
+                local, mirroring avatar.tsx) so a non-http(s) url can never reach an <img src> beacon. */}
+            {idea.images.filter((image) => isHttpUrl(image.url)).map((image) => (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={image.url}

@@ -11,6 +11,7 @@ import {
   boardNaddr,
   buildThread,
   countThread,
+  isAuthorized,
   parseReply,
   type Idea,
   type NostrEvent,
@@ -93,9 +94,13 @@ export function IdeaView({ ideaId, initialIdea }: { ideaId: string; initialIdea:
   const allReplies = useMemo<Reply[]>(() => {
     const byId = new Map<string, Reply>();
     for (const r of view.replies) byId.set(r.id, r);
-    for (const r of postedReplyObjs) if (!byId.has(r.id)) byId.set(r.id, r);
+    // An optimistic reply that has since been deleted/hidden/banned (this or another session) must not
+    // revive from local state: re-apply the same suppression the upstream view already applied to replies.
+    for (const r of postedReplyObjs)
+      if (!byId.has(r.id) && !view.deleted.has(r.id) && !view.hidden.has(r.id) && !view.banned.has(r.pubkey))
+        byId.set(r.id, r);
     return [...byId.values()];
-  }, [view.replies, postedReplyObjs]);
+  }, [view.replies, view.deleted, view.hidden, view.banned, postedReplyObjs]);
   const nodes = useMemo(() => buildThread(ideaId, allReplies), [ideaId, allReplies]);
 
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
@@ -148,6 +153,27 @@ export function IdeaView({ ideaId, initialIdea }: { ideaId: string; initialIdea:
         <p className="font-display text-lg text-ink">Idea not found</p>
         <p className="max-w-sm text-sm text-muted">
           We could not find this idea on the relays we checked.
+        </p>
+      </div>
+    );
+  }
+
+  // Moderation parity with the feed: a retracted (NIP-09), mod-hidden, or banned-author idea must not
+  // render on its permalink either (it would otherwise keep live vote/reply controls). On curated boards,
+  // a not-yet-approved idea is hidden from everyone EXCEPT the owner/mods who review it. These view sets
+  // are SSR-seeded and only GROW as data loads, so this never falsely flashes not-found during hydration.
+  const viewerIsMod = pubkey && board ? isAuthorized(pubkey, board) : false;
+  const suppressed =
+    view.deleted.has(idea.id) ||
+    view.hidden.has(idea.id) ||
+    view.banned.has(idea.pubkey) ||
+    (ideaStat !== undefined && !ideaStat.approved && !viewerIsMod);
+  if (suppressed) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-20 text-center">
+        <p className="font-display text-lg text-ink">Idea not available</p>
+        <p className="max-w-sm text-sm text-muted">
+          This idea has been removed or is not available on this board.
         </p>
       </div>
     );

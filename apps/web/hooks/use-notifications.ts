@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { useSubscribe } from "@nostr-dev-kit/react";
 import { NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
 import { KIND, parseZapReceipt, type NostrEvent } from "@voxboard/protocol";
@@ -69,7 +69,12 @@ export function useNotifications(): Notifications {
   );
 
   const events = useMemo(() => toNostrEvents(sub.events), [sub.events]);
-  const hidden = useDeletedIds(events);
+  const liveHidden = useDeletedIds(events);
+  // useDeletedIds has no SSR seed here, so NDK can momentarily return an empty deleted set on a
+  // remount/re-subscribe; retain the last non-empty set so a retracted item does not flash back.
+  const lastHidden = useRef<Set<string>>(liveHidden);
+  if (liveHidden.size > 0) lastHidden.current = liveHidden;
+  const hidden = liveHidden.size > 0 ? liveHidden : lastHidden.current;
 
   const items = useMemo<NotificationItem[]>(() => {
     const out: NotificationItem[] = [];
