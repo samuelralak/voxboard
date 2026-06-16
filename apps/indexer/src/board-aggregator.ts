@@ -17,6 +17,7 @@ import { verifyEvent } from "nostr-tools/pure";
 import {
   KIND,
   deriveBoardStats,
+  isSafeRelayUrl,
   partitionBoardEvents,
   parseCommunityCoordinate,
   validateNostrEvent,
@@ -173,8 +174,12 @@ export class BoardAggregator extends DurableObject<Env> {
   }
 
   private async connectRelay(relayUrl: string): Promise<void> {
+    // Re-check at CONNECT time, not just at track time: the relay set is persisted and replayed by the
+    // keep-alive alarm, so a parse-time-only filter is insufficient (SSRF defense-in-depth).
+    if (!isSafeRelayUrl(relayUrl)) throw new Error(`unsafe relay url: ${relayUrl}`);
     const httpUrl = relayUrl.replace(/^ws/, "http"); // wss:// -> https://, ws:// -> http://
-    const resp = await fetch(httpUrl, { headers: { Upgrade: "websocket" } });
+    // redirect:"manual" — never follow a redirect off the validated host (the 2025 SSRF-filter-bypass class).
+    const resp = await fetch(httpUrl, { headers: { Upgrade: "websocket" }, redirect: "manual" });
     const ws = resp.webSocket;
     if (!ws) throw new Error(`relay did not upgrade: ${relayUrl} (status ${resp.status})`);
 

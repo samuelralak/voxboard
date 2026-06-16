@@ -1,4 +1,5 @@
 import "client-only";
+import { isUnsafeHost } from "@voxboard/protocol";
 
 /**
  * Resolve a recipient's LNURL-pay metadata from their lightning address (lud16). The ONLY field that
@@ -33,28 +34,6 @@ function parseLud16(lud16: string): { name: string; domain: string } | null {
   const domain = lud16.slice(at + 1).toLowerCase();
   if (!NAME_RE.test(name) || !DOMAIN_RE.test(domain)) return null;
   return { name, domain };
-}
-
-/**
- * Block loopback / private / link-local / IP-literal hosts before fetching. The host is canonicalized
- * through the URL parser FIRST, so numeric/hex/octal/decimal IPv4 forms (e.g. 2130706433, 0x7f000001,
- * 0177.0.0.1) all normalize to dotted-decimal and are caught — the check must not run on the raw string
- * while fetch() normalizes it afterward. A legitimate lightning-address domain is always a DNS name, so
- * we reject ALL IP literals, internal or not.
- */
-function isUnsafeHost(domain: string): boolean {
-  let host: string;
-  try {
-    host = new URL(`https://${domain}/`).hostname.replace(/\.$/, "").toLowerCase();
-  } catch {
-    return true; // unparseable host => unsafe
-  }
-  if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal") || host.endsWith(".onion")) {
-    return true;
-  }
-  if (host.includes(":")) return true; // IPv6 (incl. ::1, ::ffff:127.0.0.1) and IPv4-mapped forms
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host)) return true; // any dotted-decimal IPv4 literal
-  return false;
 }
 
 async function doResolve(lud16: string): Promise<LnurlPayMeta | null> {

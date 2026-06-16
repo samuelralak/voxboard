@@ -11,7 +11,7 @@
  */
 
 import { z } from "zod";
-import { parseCommunityCoordinate } from "@voxboard/protocol";
+import { isSafeRelayUrl, parseCommunityCoordinate } from "@voxboard/protocol";
 import { BoardAggregator, type Env, type IdeaSort } from "./board-aggregator";
 
 export { BoardAggregator };
@@ -26,7 +26,10 @@ const CORS: Record<string, string> = {
 
 const trackSchema = z.object({
   coordinate: z.string().refine((c) => parseCommunityCoordinate(c) !== null, "not a 34550 coordinate"),
-  relays: z.array(z.string().startsWith("ws")).min(1).max(20),
+  // SSRF gate: each relay must be a parseable ws/wss URL whose host is not loopback/private/an IP literal
+  // (shared isSafeRelayUrl, also re-checked in connectRelay). Capped at 5 — outbound WebSockets do not
+  // hibernate and count against the DO's ~6 simultaneous-connection ceiling.
+  relays: z.array(z.string().refine(isSafeRelayUrl, "unsafe relay url")).min(1).max(5),
 });
 
 export default {
