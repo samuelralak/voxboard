@@ -146,7 +146,8 @@ export function BoardSubscriptionProvider({
   // 4. deletions over the FULL candidate union (ideas+replies+labels+approvals+reactions) so a retraction
   //    of ANY of them is honored on the first derive pass (deriveBoardView consumes the kind-5 events).
   //    Scope: `#e` (event id) only. The board's own kind-34550 is replace-only (latest-version-wins via
-  //    the feed sub), and `a`-coordinate (NIP-09) deletions of the board/labels are out of scope (no
+  //    the `board` prop / useBoard sub), and `a`-coordinate (NIP-09) deletions of the board/labels are
+  //    out of scope (no
   //    in-app path emits them); add an `#a` deletions sub here if cross-client board retraction is needed.
   const deletionIds = useMemo(
     () => [...commentIds, ...modEvents.map((e) => e.id), ...reactionEvents.map((e) => e.id)],

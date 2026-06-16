@@ -103,7 +103,8 @@ export async function fetchBoardSnapshot(
     const votes = voteEvents.map(validateNostrEvent).filter(notNull);
     // Vote retractions (kind-5 targeting a reaction id) are not covered by contentIds; seed them so a
     // retracted vote doesn't transiently count at first paint before the live `#e` deletions sub round-
-    // trips. Bounded maxWait (tail-accuracy pass, not a first-paint blocker); runs only when votes exist.
+    // trips. Bounded (maxWait 2000, only when votes exist): adds up to ~2s to the awaited SSR response, but
+    // the visible idea content is already resolved by the prior passes.
     const voteIds = votes.map((v) => v.id);
     const voteDeletions =
       voteIds.length > 0
@@ -226,7 +227,8 @@ export async function fetchIdeaThreadSnapshot(
     const votes = voteEvents.map(validateNostrEvent).filter(notNull);
     // Vote retractions (kind-5 targeting a reaction id) are not covered by contentIds; seed them so a
     // retracted vote doesn't transiently count at first paint before the live `#e` deletions sub round-
-    // trips. Bounded maxWait (tail-accuracy pass, not a first-paint blocker); runs only when votes exist.
+    // trips. Bounded (maxWait 2000, only when votes exist): adds up to ~2s to the awaited SSR response, but
+    // the visible idea content is already resolved by the prior passes.
     const voteIds = votes.map((v) => v.id);
     const voteDeletions =
       voteIds.length > 0
