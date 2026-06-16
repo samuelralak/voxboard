@@ -18,6 +18,14 @@ describe("decodeInvoice (real bolt11)", () => {
     expect(d!.paymentHash).toBe("0001020304050607080900010203040506070809000102030405060708090102");
   });
 
+  it("parses the numeric timestamp and expiry (not null)", () => {
+    const d = decodeInvoice(INV_2500U);
+    expect(d).not.toBeNull();
+    // decoder yields these as numbers, not strings; they must coerce, not fall through to null.
+    expect(d!.timestamp).toBe(1496314658);
+    expect(d!.expiry).toBe(60);
+  });
+
   it("fails closed on garbage / empty / non-bolt11 input", () => {
     expect(decodeInvoice("not a bolt11")).toBeNull();
     expect(decodeInvoice("")).toBeNull();

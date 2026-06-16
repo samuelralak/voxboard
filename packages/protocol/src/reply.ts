@@ -17,6 +17,10 @@ import {
 import { communityRootTags, eventParentTags, type ParentRef } from "./scope";
 import { sanitizeText } from "./sanitize";
 
+// Read-path body cap so a hostile relay event can't carry a megabyte reply. Over-cap parses return
+// null (rejected like any other invalid field), they do NOT throw. Generous enough for real replies.
+export const MAX_REPLY_BODY = 20_000;
+
 export interface BuildReplyInput {
   board: CommunityRef;
   boardRelay?: string;
@@ -83,6 +87,10 @@ export function parseReply(event: NostrEvent): Reply | null {
   const parentId = eTag?.[1];
   if (!parentId) return null;
 
+  // body is a DISPLAY field: bound length (post-sanitize) but TRUNCATE, never reject the whole reply
+  // (which would orphan it from the thread). null is reserved for structurally invalid events above.
+  const body = sanitizeText(event.content).slice(0, MAX_REPLY_BODY);
+
   const kindValue = getTagValue(event.tags, "k");
   const parentKind = kindValue ? Number(kindValue) : KIND.Comment;
   const parentAuthor =
@@ -95,7 +103,7 @@ export function parseReply(event: NostrEvent): Reply | null {
     coordinate: communityCoordinate(board),
     parentId,
     parentKind: Number.isFinite(parentKind) ? parentKind : KIND.Comment,
-    body: sanitizeText(event.content),
+    body,
     createdAt: event.created_at,
     raw: event,
   };

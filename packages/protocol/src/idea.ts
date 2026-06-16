@@ -23,6 +23,17 @@ import {
   type ImageAttachment,
 } from "./scope";
 import { sanitizeLine, sanitizeText } from "./sanitize";
+// MAX_CATEGORY_NAME is shared with parseBoard so category normalization (and the over-long cap) stays
+// identical on both sides, keeping the feed's category filter a reliable match.
+import { MAX_CATEGORY_NAME } from "./board";
+
+// Read-path length caps so a hostile relay event can't carry a megabyte title/body or thousands of
+// images. title/body are DISPLAY fields: over-cap values are TRUNCATED, never rejected (rejecting the
+// whole event would drop a legitimate idea along with its votes + replies); the image count is bounded
+// the same way. None throw. Generous enough for real content: a long-form body or verbose title fits.
+export const MAX_IDEA_TITLE = 300;
+export const MAX_IDEA_BODY = 20_000;
+export const MAX_IDEA_IMAGES = 16;
 
 export interface BuildIdeaInput {
   board: CommunityRef;
@@ -90,10 +101,15 @@ export function parseIdea(event: NostrEvent): Idea | null {
 
   // Defuse bidi-override / zero-width / control characters so a relay can't scramble or fake the title.
   const subject = sanitizeLine(getTagValue(event.tags, "subject") ?? "");
-  const title = subject.length > 0 ? subject : sanitizeLine(firstLine(event.content));
+  // title/body are DISPLAY fields: bound length (post-sanitize) but TRUNCATE, never reject. A legitimate
+  // cross-client idea (no `subject` tag, so the title falls back to a long first content line, or a
+  // long-form body) must still render instead of vanishing with its votes + replies.
+  const title = (subject.length > 0 ? subject : sanitizeLine(firstLine(event.content))).slice(0, MAX_IDEA_TITLE);
+  const body = sanitizeText(event.content).slice(0, MAX_IDEA_BODY);
 
   const images: ImageAttachment[] = [];
   for (const t of getTags(event.tags, "imeta")) {
+    if (images.length >= MAX_IDEA_IMAGES) break; // bound the per-event fan-out
     const img = parseImeta(t);
     if (img) images.push(img);
   }
@@ -104,9 +120,10 @@ export function parseIdea(event: NostrEvent): Idea | null {
     board,
     coordinate: communityCoordinate(board),
     title,
-    body: sanitizeText(event.content),
+    body,
     // trim + sanitize each category so the feed filter matches parseBoard's normalized categories.
-    categories: [...new Set(getTagValues(event.tags, "t").map((c) => sanitizeLine(c)).filter((c) => c.length > 0))],
+    // An over-long category (relay junk) is dropped too, matching parseBoard's cap.
+    categories: [...new Set(getTagValues(event.tags, "t").map((c) => sanitizeLine(c)).filter((c) => c.length > 0 && c.length <= MAX_CATEGORY_NAME))],
     images,
     createdAt: event.created_at,
     raw: event,

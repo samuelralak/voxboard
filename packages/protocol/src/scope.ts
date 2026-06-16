@@ -10,6 +10,7 @@
 import { KIND } from "./kinds";
 import type { CommunityRef } from "./coords";
 import { communityCoordinate } from "./coords";
+import { isHttpUrl } from "./sanitize";
 
 /** Root scope (uppercase) pinned to the community: A / K / P. */
 export function communityRootTags(board: CommunityRef, relay?: string): string[][] {
@@ -69,7 +70,11 @@ export function imetaTag(img: ImageAttachment): string[] {
   return ["imeta", ...parts];
 }
 
-/** Parse a NIP-92 `imeta` tag back into an image attachment. Returns null if it carries no url. */
+/**
+ * Parse a NIP-92 `imeta` tag back into an image attachment. Returns null if it carries no url, or if
+ * the url is not http(s) (drops javascript:/data:/relative urls so consumers never render an unsafe
+ * <img src> beacon).
+ */
 export function parseImeta(tag: string[]): ImageAttachment | null {
   const map: Record<string, string> = {};
   for (const part of tag.slice(1)) {
@@ -78,7 +83,7 @@ export function parseImeta(tag: string[]): ImageAttachment | null {
     map[part.slice(0, sp)] = part.slice(sp + 1);
   }
   const url = map["url"];
-  if (!url) return null;
+  if (!url || !isHttpUrl(url)) return null;
   const img: ImageAttachment = { url };
   if (map["m"]) img.mime = map["m"];
   if (map["alt"]) img.alt = map["alt"];

@@ -109,6 +109,14 @@ describe("moderation off-states: ban/hide are reversible", () => {
     expect(bannedSubjects([ban, unban, reban], b).has(ALICE)).toBe(true);
   });
 
+  it("a ban whose p-tag pubkey is upper/mixed case still bans the lowercase author", () => {
+    const b = board([MOD]);
+    // The p tag is written with an upper/mixed-case pubkey; the author publishes lowercase.
+    const ban = parseBan(sign(buildBan({ subject: ALICE.toUpperCase(), board: REF, createdAt: 100 }), MOD))!;
+    expect(ban.subject).toBe(ALICE); // normalized at the parse boundary
+    expect(bannedSubjects([ban], b).has(ALICE)).toBe(true);
+  });
+
   it("a later 'unhidden' label un-hides an idea", () => {
     const b = board([MOD]);
     const idea = "1d".repeat(32);

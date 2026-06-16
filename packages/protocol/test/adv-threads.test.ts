@@ -14,7 +14,7 @@
 import { describe, it, expect } from "vitest";
 import type { NostrEvent } from "../src/event";
 import { KIND } from "../src/kinds";
-import { isIdeaEvent, parseIdea } from "../src/idea";
+import { isIdeaEvent, parseIdea, MAX_IDEA_BODY, MAX_IDEA_TITLE, MAX_IDEA_IMAGES } from "../src/idea";
 import { isReplyEvent, parseReply, type Reply } from "../src/reply";
 import {
   buildThread,
@@ -449,51 +449,77 @@ describe("threads/parseIdea: control bytes stripped; HTML/markdown text preserve
     expect(idea!.title).not.toContain(NUL);
   });
 
-  it("a 5MB single-line content becomes both title and body with zero truncation", () => {
+  it("a 5MB single-line content is TRUNCATED at the read-path body cap (bound size, keep the idea)", () => {
     const blob = "H".repeat(5_000_000);
     const event = raw({ kind: KIND.Comment, content: blob, tags: ideaTags() });
+    // Over the body cap the idea still parses (keeping its votes + replies), with body truncated to the
+    // cap rather than the whole event dropped (a display field must not erase the post). Not thrown.
     const idea = parseIdea(event);
     expect(idea).not.toBeNull();
-    expect(idea!.body.length).toBe(5_000_000);
-    expect(idea!.title.length).toBe(5_000_000); // firstLine fallback returns the whole blob
+    expect(idea!.body.length).toBe(MAX_IDEA_BODY);
+    // A body right at the cap parses identically; the bound is exact and stays generous.
+    const atCap = raw({ kind: KIND.Comment, content: "H".repeat(MAX_IDEA_BODY), tags: ideaTags([["subject", "ok"]]) });
+    expect(parseIdea(atCap)?.body.length).toBe(MAX_IDEA_BODY);
+  });
+
+  it("a cross-client idea with no subject tag and a long first content line still parses (title truncated, not dropped)", () => {
+    // The open-board interop case: with no subject tag the title derives from the first content line. A
+    // long opener must NOT drop the whole idea (which would lose its votes + replies); the title truncates.
+    const event = raw({ kind: KIND.Comment, content: "z".repeat(MAX_IDEA_TITLE + 50), tags: ideaTags() });
+    const idea = parseIdea(event);
+    expect(idea).not.toBeNull();
+    expect(idea!.title.length).toBe(MAX_IDEA_TITLE);
   });
 });
 
 describe("threads/parseIdea: imeta media fan-out and url scheme", () => {
-  it("a javascript:/data: imeta url flows verbatim into images[].url (no scheme allowlist in the parser)", () => {
+  it("a javascript:/data: imeta url is dropped at parse time (scheme allowlist in the parser)", () => {
     const event = raw({
       kind: KIND.Comment,
       tags: ideaTags([
         ["imeta", "url javascript:alert(1)", "alt <img src=x onerror=alert(2)>"],
         ["imeta", "url data:text/html;base64,PHNjcmlwdD4=", "m text/html"],
+        ["imeta", "url https://h/ok.png"],
       ]),
     });
     const idea = parseIdea(event);
     expect(idea).not.toBeNull();
-    // parseImeta does no scheme allowlist; these dangerous urls flow straight into images[].url. The
-    // renderer MUST apply a scheme allowlist before using them. Here both active-scheme urls survive.
+    // parseImeta applies an http(s) allowlist; the active-scheme urls never reach images[].url, so a
+    // malicious imeta cannot become a tracking/IP-logging <img src> beacon. Only the safe https url survives.
     const schemes = idea!.images.map((img) => img.url.split(":", 1)[0]);
-    expect(schemes).toContain("javascript");
-    expect(schemes).toContain("data");
+    expect(schemes).not.toContain("javascript");
+    expect(schemes).not.toContain("data");
+    expect(idea!.images.map((img) => img.url)).toEqual(["https://h/ok.png"]);
   });
 
-  it("thousands of identical imeta urls are all materialized (no cap, no dedup in the parser)", () => {
+  it("thousands of imeta urls are capped at MAX_IDEA_IMAGES (bounded per-event fan-out)", () => {
     const imetas: string[][] = [];
     for (let i = 0; i < 5000; i++) imetas.push(["imeta", "url https://h/img.png"]);
     const event = raw({ kind: KIND.Comment, tags: ideaTags(imetas) });
     const idea = parseIdea(event);
     expect(idea).not.toBeNull();
-    // parseIdea applies no cap or dedup to imeta tags, so all 5000 materialize. The render layer must
-    // bound this; the parser surfaces every attacker-supplied attachment verbatim.
-    expect(idea!.images.length).toBe(5000);
+    // parseIdea bounds the per-event attachment count, so an attacker can't materialize thousands of
+    // ImageAttachment entries (nor force the render layer to mount thousands of <img>).
+    expect(idea!.images.length).toBe(MAX_IDEA_IMAGES);
   });
 
-  it("parseImeta alone returns javascript: url and HTML alt verbatim (untrusted attribute surface)", () => {
-    const img = parseImeta(["imeta", "url javascript:alert(1)", "alt <img onerror=x>"]);
+  it("parseImeta drops a javascript: url (scheme allowlist) but keeps a safe https url with HTML alt", () => {
+    // A javascript: url is rejected entirely (returns null) so it never reaches an <img src>.
+    expect(parseImeta(["imeta", "url javascript:alert(1)", "alt <img onerror=x>"])).toBeNull();
+    // A normal https url survives; alt stays verbatim (the renderer still escapes the alt attribute).
+    const img = parseImeta(["imeta", "url https://h/img.png", "alt <img onerror=x>"]);
     expect(img).not.toBeNull();
-    // Documents the raw untrusted output; the renderer MUST apply a scheme allowlist + escape alt.
-    expect(img!.url).toBe("javascript:alert(1)");
+    expect(img!.url).toBe("https://h/img.png");
     expect(img!.alt).toBe("<img onerror=x>");
+  });
+
+  it("parseImeta drops data: and relative/garbage urls but keeps a normal https url", () => {
+    expect(parseImeta(["imeta", "url data:text/html;base64,PHNjcmlwdD4="])).toBeNull();
+    expect(parseImeta(["imeta", "url /relative/path.png"])).toBeNull();
+    expect(parseImeta(["imeta", "url not a url"])).toBeNull();
+    expect(parseImeta(["imeta", "url https://cdn.example/img.png"])?.url).toBe(
+      "https://cdn.example/img.png",
+    );
   });
 });
 

@@ -17,6 +17,13 @@ import {
   now,
 } from "./event";
 
+// Read-path length caps so a hostile relay event can't carry a megabyte name/description/category.
+// Over-cap values are rejected the same way an empty name is (parse returns null / the value is
+// dropped), they do NOT throw. Generous enough for real boards.
+export const MAX_BOARD_NAME = 200;
+export const MAX_BOARD_DESCRIPTION = 2_000;
+export const MAX_CATEGORY_NAME = 80;
+
 export interface BoardModerator {
   pubkey: string;
   relay?: string;
@@ -100,10 +107,13 @@ export interface Board {
 export function parseBoard(event: NostrEvent): Board | null {
   if (event.kind !== KIND.Community) return null;
   const slug = getTagValue(event.tags, "d");
-  // Sanitize first: a name that is only bidi/zero-width junk collapses to "" and the board is rejected.
-  const name = sanitizeLine(getTagValue(event.tags, "name") ?? "");
-  // d may be empty (the addressable default), but a board with no visible name is unusable.
-  if (slug === undefined || !name) return null;
+  // d may be empty (the addressable default), but a board with no `d` tag at all is unaddressable.
+  if (slug === undefined) return null;
+  // Sanitize (defuse bidi/zero-width junk), then TRUNCATE an over-long name to MAX_BOARD_NAME rather than
+  // reject the whole board (rejecting would drop the board and every idea under it); name is a DISPLAY
+  // field. A name that sanitizes to "" (pure junk, or absent) is still fatal: a board needs a label.
+  const name = sanitizeLine(getTagValue(event.tags, "name") ?? "").slice(0, MAX_BOARD_NAME);
+  if (!name) return null;
 
   const ref: CommunityRef = { pubkey: event.pubkey, slug };
 
@@ -149,7 +159,12 @@ export function parseBoard(event: NostrEvent): Board | null {
     modeValue === MODERATION_MODE.curated ? MODERATION_MODE.curated : MODERATION_MODE.open;
 
   const descriptionRaw = getTagValue(event.tags, "description");
-  const description = descriptionRaw ? sanitizeText(descriptionRaw) : undefined;
+  const sanitizedDescription = descriptionRaw ? sanitizeText(descriptionRaw) : undefined;
+  // Drop an over-long description (the field is optional) rather than store megabytes of relay junk.
+  const description =
+    sanitizedDescription && sanitizedDescription.length <= MAX_BOARD_DESCRIPTION
+      ? sanitizedDescription
+      : undefined;
 
   const board: Board = {
     pubkey: event.pubkey,
@@ -160,8 +175,8 @@ export function parseBoard(event: NostrEvent): Board | null {
     moderators,
     relays,
     // sanitizeLine (not just trim) so board categories normalize identically to parseIdea's, keeping
-    // the feed's category filter a reliable match.
-    categories: [...new Set(getTagValues(event.tags, "t").map((c) => sanitizeLine(c)).filter((c) => c.length > 0))],
+    // the feed's category filter a reliable match. An over-long category (relay junk) is dropped too.
+    categories: [...new Set(getTagValues(event.tags, "t").map((c) => sanitizeLine(c)).filter((c) => c.length > 0 && c.length <= MAX_CATEGORY_NAME))],
     mode,
     createdAt: event.created_at,
     raw: event,

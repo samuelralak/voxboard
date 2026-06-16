@@ -321,8 +321,13 @@ export function zapTotalsByTarget(
 
   const out = new Map<string, ZapTotal>();
   for (const [key, entry] of acc) {
+    // sats is display/ranking only; msat (BigInt) stays the authoritative exact value. Above
+    // 2^53 sats a Number conversion would lose precision silently, so clamp at MAX_SAFE_INTEGER.
+    const satFloor = entry.msat / ZAP_SAT; // exact BigInt floor of msat -> sat
+    const sats =
+      satFloor > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : Number(satFloor);
     out.set(key, {
-      sats: Number(entry.msat / ZAP_SAT), // single msat -> sat floor
+      sats,
       msat: entry.msat,
       zapCount: entry.count,
       senders: entry.senders,

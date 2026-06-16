@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import type { NostrEvent } from "../src/event";
 import { KIND, MODERATION_MODE } from "../src/kinds";
-import { buildIdea, isIdeaEvent, parseIdea } from "../src/idea";
-import { buildReply, isReplyEvent, parseReply, type Reply } from "../src/reply";
+import { buildIdea, isIdeaEvent, parseIdea, MAX_IDEA_TITLE, MAX_IDEA_BODY } from "../src/idea";
+import { buildReply, isReplyEvent, parseReply, MAX_REPLY_BODY, type Reply } from "../src/reply";
 import { parseVote, tallyVotes, tallyVotesByTarget } from "../src/vote";
 import { parseDelete, deletedEventIds } from "../src/delete";
 import { buildThread, countThread, partitionBoardEvents, replyCountsByRoot } from "../src/thread";
 import { parseCommunityCoordinate, communityCoordinate } from "../src/coords";
-import { buildBoard, parseBoard } from "../src/board";
+import { buildBoard, parseBoard, MAX_BOARD_NAME, MAX_BOARD_DESCRIPTION, MAX_CATEGORY_NAME } from "../src/board";
 import { buildStatus } from "../src/status";
 import { buildApproval } from "../src/approval";
 import { buildBan, buildHide, buildLock, buildPin, buildUnpin } from "../src/moderation";
@@ -244,6 +244,20 @@ describe("adversarial: idea / reply disambiguation", () => {
     const idea = ev(buildIdea({ board: BOARD, title: "x", categories: ["feature", "feature", "bug"] }), ALICE);
     expect(parseIdea(idea)?.categories).toEqual(["feature", "bug"]);
   });
+  it("a normal-length title/body parses; an over-long one is TRUNCATED, not rejected (bound size without losing the idea)", () => {
+    const ok = ev(buildIdea({ board: BOARD, title: "x".repeat(MAX_IDEA_TITLE), body: "y".repeat(MAX_IDEA_BODY) }), ALICE);
+    expect(parseIdea(ok)?.title.length).toBe(MAX_IDEA_TITLE);
+    // title/body are DISPLAY fields: an over-long one still parses (the idea keeps its votes + replies)
+    // with the field truncated to the cap, instead of the whole event vanishing.
+    const longTitle = ev(buildIdea({ board: BOARD, title: "x".repeat(MAX_IDEA_TITLE + 5), body: "ok" }), ALICE);
+    expect(parseIdea(longTitle)?.title.length).toBe(MAX_IDEA_TITLE);
+    const longBody = ev(buildIdea({ board: BOARD, title: "t", body: "y".repeat(MAX_IDEA_BODY + 5) }), ALICE);
+    expect(parseIdea(longBody)?.body.length).toBe(MAX_IDEA_BODY);
+  });
+  it("an over-long category is dropped, not stored", () => {
+    const idea = ev(buildIdea({ board: BOARD, title: "x", categories: ["bug", "z".repeat(MAX_CATEGORY_NAME + 1)] }), ALICE);
+    expect(parseIdea(idea)?.categories).toEqual(["bug"]);
+  });
 });
 
 describe("adversarial: coordinates", () => {
@@ -277,6 +291,33 @@ describe("adversarial: board parsing", () => {
     });
     const parsed = parseBoard(board);
     expect(parsed?.moderators.map((m) => m.pubkey)).toEqual([ALICE]);
+  });
+  it("a normal-length name parses; an over-long one is TRUNCATED, not rejected (keep the board + its ideas)", () => {
+    const ok = raw({ kind: KIND.Community, pubkey: OWNER, tags: [["d", SLUG], ["name", "X".repeat(MAX_BOARD_NAME)]] });
+    expect(parseBoard(ok)?.name.length).toBe(MAX_BOARD_NAME);
+    // name is a DISPLAY field: an over-long name truncates to the cap and the board still parses
+    // (rejecting would drop the board and every idea under it). An empty/junk name stays fatal below.
+    const longName = raw({ kind: KIND.Community, pubkey: OWNER, tags: [["d", SLUG], ["name", "X".repeat(MAX_BOARD_NAME + 5)]] });
+    expect(parseBoard(longName)?.name.length).toBe(MAX_BOARD_NAME);
+  });
+  it("an over-long description is dropped; a normal one is kept", () => {
+    const ok = raw({ kind: KIND.Community, pubkey: OWNER, tags: [["d", SLUG], ["name", "X"], ["description", "d".repeat(MAX_BOARD_DESCRIPTION)]] });
+    expect(parseBoard(ok)?.description?.length).toBe(MAX_BOARD_DESCRIPTION);
+    const tooLong = raw({ kind: KIND.Community, pubkey: OWNER, tags: [["d", SLUG], ["name", "X"], ["description", "d".repeat(MAX_BOARD_DESCRIPTION + 1)]] });
+    expect(parseBoard(tooLong)?.description).toBeUndefined();
+  });
+  it("an over-long category is dropped, not stored", () => {
+    const board = raw({ kind: KIND.Community, pubkey: OWNER, tags: [["d", SLUG], ["name", "X"], ["t", "bug"], ["t", "z".repeat(MAX_CATEGORY_NAME + 1)]] });
+    expect(parseBoard(board)?.categories).toEqual(["bug"]);
+  });
+});
+
+describe("adversarial: reply parsing", () => {
+  it("a normal-length reply body parses; an over-long one is TRUNCATED, not rejected (don't orphan the thread)", () => {
+    const ok = ev(buildReply({ board: BOARD, parent: { id: "P", pubkey: BOB, kind: 1111 }, body: "y".repeat(MAX_REPLY_BODY) }), ALICE);
+    expect(parseReply(ok)?.body.length).toBe(MAX_REPLY_BODY);
+    const tooLong = ev(buildReply({ board: BOARD, parent: { id: "P", pubkey: BOB, kind: 1111 }, body: "y".repeat(MAX_REPLY_BODY + 5) }), ALICE);
+    expect(parseReply(tooLong)?.body.length).toBe(MAX_REPLY_BODY);
   });
 });
 

@@ -33,6 +33,18 @@ function sectionValue(sections: Section[], name: string): string | undefined {
   return typeof found?.value === "string" ? found.value : undefined;
 }
 
+// timestamp/expiry come off the decoder as numbers (not strings), so the string-only sectionValue
+// above never sees them. Coerce a numeric or numeric-string section value to a finite, non-negative
+// integer; anything else (NaN, negative, non-numeric) yields null so the field stays fail-closed.
+function sectionInt(sections: Section[], name: string): number | null {
+  const raw = sections.find((s) => s?.name === name)?.value;
+  let n: number;
+  if (typeof raw === "number") n = raw;
+  else if (typeof raw === "string" && DIGITS.test(raw)) n = Number(raw);
+  else return null;
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
 /**
  * Decode a bolt11 invoice for zap validation. Returns null on ANY structural problem — an amountless
  * invoice, a missing/garbage payment_hash, a non-numeric amount — so an attacker cannot smuggle a
@@ -64,13 +76,13 @@ export function decodeInvoice(pr: string): DecodedInvoice | null {
   const descriptionHashRaw = sectionValue(sections, "description_hash")?.toLowerCase() ?? null;
   const descriptionHash = descriptionHashRaw && HEX.test(descriptionHashRaw) ? descriptionHashRaw : null;
 
-  const ts = sectionValue(sections, "timestamp");
-  const exp = sectionValue(sections, "expiry");
+  // timestamp/expiry are currently INFORMATIONAL only: nothing here gates on invoice freshness (the
+  // validator credits regardless of expiry). They are parsed so a caller can do its own freshness check.
   return {
     amountMsat,
     paymentHash,
     descriptionHash,
-    timestamp: ts && DIGITS.test(ts) ? Number(ts) : null,
-    expiry: exp && DIGITS.test(exp) ? Number(exp) : null,
+    timestamp: sectionInt(sections, "timestamp"),
+    expiry: sectionInt(sections, "expiry"),
   };
 }

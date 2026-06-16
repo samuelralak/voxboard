@@ -249,7 +249,7 @@ export function parseBan(event: NostrEvent): BanLabel | null {
   if (!declaresNamespace(event, LABEL_NS.moderation)) return null;
   const value = labelValue(event, LABEL_NS.moderation);
   if (value !== MODERATION.banned && value !== MODERATION.unbanned) return null;
-  const subject = firstTagValue(event, "p");
+  const subject = firstTagValue(event, "p")?.toLowerCase();
   if (!subject) return null;
   return { pubkey: event.pubkey, subject, banned: value === MODERATION.banned, createdAt: event.created_at, raw: event };
 }
