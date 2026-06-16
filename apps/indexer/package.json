@@ -1,0 +1,24 @@
+{
+  "name": "@voxboard/indexer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Voxboard Aggregator: Cloudflare Worker + Durable Object that subscribes to relays per board and aggregates votes/status/zaps. Skeleton: connect, subscribe, store raw events. See docs/INDEXER.md.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@voxboard/protocol": "*",
+    "nostr-tools": "2.23.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250601.0",
+    "typescript": "^5.7.0",
+    "wrangler": "^4.0.0"
+  }
+}

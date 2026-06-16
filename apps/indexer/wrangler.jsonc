@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "voxboard-indexer",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "BOARD_AGGREGATOR", "class_name": "BoardAggregator" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["BoardAggregator"] }]
+}
