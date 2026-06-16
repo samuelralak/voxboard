@@ -1,0 +1,23 @@
+{
+  "name": "nostr-userinput",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Voxboard — a Nostr-native feedback board (NIP-72), the Nostr port of userinput.app",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/web",
+    "typecheck": "npm run --workspaces --if-present typecheck",
+    "test": "npm run --workspaces --if-present test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  }
+}

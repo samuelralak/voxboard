@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# cloudflare / wrangler (indexer)
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# test / coverage
+coverage/
+.vitest/
+
+# env
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# local tooling + research scaffolding (not product)
+.mcp.json
+.frontend-craft/
+/docs/research-raw/
