@@ -5,9 +5,13 @@ import { cn } from "@/lib/utils";
 
 /**
  * The vote control: a compact vertical up / score / down stack. Deliberately NOT a bordered box
- * (which read as a number-stepper). The score is the bold focal point; the chevrons are quiet buttons
+ * (which reads as a number-stepper). The score is the bold focal point; the chevrons are quiet buttons
  * that light up (green on upvote, rose on downvote) on hover/active. `self-start` keeps it from
- * stretching to the row/article height. Read-only until the signer lands in M2.
+ * stretching to the row/article height. Voting is live; `disabled` is the per-row in-flight state while a
+ * cast is publishing (a logged-out click still routes to the login prompt via the caller's handler).
+ *
+ * Touch ergonomics: the chevron buttons are a full 44px tap target on touch (size-11) and tighten to the
+ * compact 28px cut at `sm`+ where a pointer is precise.
  */
 export function VotePill({
   score,
@@ -15,6 +19,7 @@ export function VotePill({
   onUp,
   onDown,
   disabled = false,
+  size = "md",
   className,
 }: {
   score: number;
@@ -22,10 +27,12 @@ export function VotePill({
   onUp?: () => void;
   onDown?: () => void;
   disabled?: boolean;
+  /** "lg" gives the score the larger cut for the feed (the ledger anchor); "md" for the idea detail. */
+  size?: "md" | "lg";
   className?: string;
 }) {
   return (
-    <div className={cn("flex w-10 shrink-0 flex-col items-center self-start pt-0.5", className)}>
+    <div className={cn("flex w-11 shrink-0 flex-col items-center self-start pt-0.5 sm:w-10", className)}>
       <button
         type="button"
         onClick={onUp}
@@ -33,10 +40,9 @@ export function VotePill({
         aria-label="Upvote"
         aria-pressed={myVote === "up"}
         className={cn(
-          "flex size-7 items-center justify-center rounded-md transition-colors",
+          "flex size-11 items-center justify-center rounded-md transition-colors sm:size-7",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
           myVote === "up" ? "text-status-implemented" : "text-muted",
-          // read-only: quiet the chevrons so the score is the focal point until voting lands
           disabled ? "cursor-not-allowed opacity-40" : "hover:bg-surface-2 hover:text-status-implemented",
         )}
       >
@@ -44,11 +50,10 @@ export function VotePill({
       </button>
 
       <span
-        aria-live="polite"
-        aria-atomic
         aria-label={`Score ${score}`}
         className={cn(
-          "py-0.5 font-mono text-sm font-semibold tabular-nums",
+          "py-0.5 font-mono font-semibold tabular-nums",
+          size === "lg" ? "text-lg" : "text-base",
           score > 0 ? "text-ink" : score < 0 ? "text-status-declined" : "text-muted",
         )}
       >
@@ -62,7 +67,7 @@ export function VotePill({
         aria-label="Downvote"
         aria-pressed={myVote === "down"}
         className={cn(
-          "flex size-7 items-center justify-center rounded-md transition-colors",
+          "flex size-11 items-center justify-center rounded-md transition-colors sm:size-7",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
           myVote === "down" ? "text-status-declined" : "text-muted",
           disabled ? "cursor-not-allowed opacity-40" : "hover:bg-surface-2 hover:text-status-declined",

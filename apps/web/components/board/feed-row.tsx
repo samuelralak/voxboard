@@ -56,8 +56,8 @@ export function FeedRow({
   const isNpub = name.length === 0;
 
   return (
-    <article className="group flex gap-3 border-b border-border py-4 transition-colors hover:bg-surface-2">
-      <VotePill score={tally.score + scoreDelta} myVote={myVote} onUp={onUp} onDown={onDown} disabled={votingDisabled} />
+    <article className="group flex gap-3 border-b border-border py-4 transition-colors hover:bg-surface-2 has-[:focus-visible]:bg-surface-2">
+      <VotePill score={tally.score + scoreDelta} myVote={myVote} onUp={onUp} onDown={onDown} disabled={votingDisabled} size="lg" />
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">

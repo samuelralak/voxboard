@@ -27,6 +27,10 @@ const badgeClass = "grid size-9 shrink-0 place-items-center rounded-lg bg-accent
  * extension card, and the riskiest nsec path tucked inside a collapsible <details>). Opened via
  * `command="show-modal" commandfor={dialogId}`; closed via the dialog ref / `command="close"`.
  *
+ * Focus: `command="show-modal"` invokes the native dialog `showModal()`, so the browser restores focus to
+ * the invoking control when the dialog closes (X / Esc / backdrop / success) with no manual bookkeeping;
+ * `useDialogOpenFocus` only moves focus IN to the first control on open.
+ *
  * The component is mounted for the whole logged-out session and never unmounts, so close (via the X,
  * Escape, backdrop, or a successful login) must actively reset state: handleClose wipes the typed nsec
  * and bunker values (the nsec is a raw private key, so it must not survive an abandoned interaction),

@@ -82,7 +82,7 @@ export function BoardFeed({ board }: { board: Board }) {
             key={v.key}
             type="button"
             onClick={() => setView(v.key)}
-            aria-current={view === v.key}
+            aria-current={view === v.key ? "page" : undefined}
             className={
               "-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent " +
               (view === v.key ? "border-accent text-ink" : "border-transparent text-muted hover:text-ink")

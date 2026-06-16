@@ -24,7 +24,7 @@ export function BoardHeader({
       <div className="flex min-w-0 items-start gap-4">
         <Avatar pubkey={board.pubkey} src={board.image?.url} alt={board.name} size="lg" shape="square" />
         <div className="min-w-0">
-          <h1 className="break-words font-display text-2xl font-semibold leading-tight tracking-tight text-ink">
+          <h1 className="break-words font-display font-display-lg text-3xl font-semibold leading-tight tracking-tight text-ink">
             {board.name}
           </h1>
           {board.description ? (
@@ -41,16 +41,16 @@ export function BoardHeader({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
         {onEdit ? (
-          <Button variant="outline" size="md" onClick={onEdit}>
+          <Button variant="outline" size="md" onClick={onEdit} aria-label="Edit board">
             <HugeiconsIcon icon={PencilEdit01Icon} size={14} strokeWidth={2} />
-            Edit
+            <span className="hidden sm:inline">Edit</span>
           </Button>
         ) : null}
-        <Button variant="outline" size="md" onClick={onCopyLink}>
+        <Button variant="outline" size="md" onClick={onCopyLink} aria-label="Copy link">
           <HugeiconsIcon icon={Copy01Icon} size={14} strokeWidth={2} />
-          Copy link
+          <span className="hidden sm:inline">Copy link</span>
         </Button>
         <Button size="md" onClick={onNewIdea}>
           <HugeiconsIcon icon={PlusSignIcon} size={14} strokeWidth={2} />

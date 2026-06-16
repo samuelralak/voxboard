@@ -38,7 +38,7 @@ export function BoardListItem({
           {typeof ideaCount === "number" ? (
             <span className="font-mono tabular-nums">{ideaCount} ideas</span>
           ) : null}
-          {board.categories.length > 0 ? <span className="text-border" aria-hidden>·</span> : null}
+          {board.categories.length > 0 ? <span className="text-muted/60" aria-hidden>·</span> : null}
           {board.categories.slice(0, 3).map((category) => (
             <Chip key={category}>{category}</Chip>
           ))}
@@ -49,7 +49,7 @@ export function BoardListItem({
         size={16}
         strokeWidth={2}
         aria-hidden
-        className="shrink-0 text-border transition-all group-hover:translate-x-0.5 group-hover:text-ink"
+        className="shrink-0 text-muted/60 transition-all group-hover:translate-x-0.5 group-hover:text-ink"
       />
     </Link>
   );

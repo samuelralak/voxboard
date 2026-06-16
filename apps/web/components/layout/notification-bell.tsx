@@ -67,7 +67,7 @@ export function NotificationBell() {
       >
         <HugeiconsIcon icon={Notification01Icon} size={16} strokeWidth={2} />
         {unread > 0 ? (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-xs font-semibold tabular-nums leading-none text-accent-foreground">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink px-1 text-xs font-semibold tabular-nums leading-none text-canvas">
             {unread > 9 ? "9+" : unread}
           </span>
         ) : null}

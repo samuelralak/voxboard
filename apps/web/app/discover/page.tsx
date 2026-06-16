@@ -50,7 +50,7 @@ export default async function DiscoverPage() {
         </div>
       ) : (
         <div className="mt-10">
-          <p className="font-mono text-xs tabular-nums text-muted">
+          <p className="font-mono text-xs uppercase tracking-widest tabular-nums text-muted">
             <span className="text-ink">{boards.length}</span> boards
           </p>
           <div className="mt-3 divide-y divide-border border-y border-border">

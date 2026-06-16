@@ -59,7 +59,7 @@ export function StatusDot({
     return (
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 text-xs font-medium",
+          "inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide",
           TEXT[status],
           tint && cn("rounded-full px-2 py-0.5", TINT[status]),
           className,

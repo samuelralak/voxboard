@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { fontVariables } from "@/lib/fonts";
 import { themeScript } from "@/lib/theme-script";
+import { BRAND } from "@/lib/tokens";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,8 +18,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fbfaf7" },
-    { media: "(prefers-color-scheme: dark)", color: "#0e0e0d" },
+    { media: "(prefers-color-scheme: light)", color: BRAND.light.canvas },
+    { media: "(prefers-color-scheme: dark)", color: BRAND.dark.canvas },
   ],
 };
 
