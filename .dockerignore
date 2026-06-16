@@ -1,0 +1,21 @@
+# Keep the host's installed deps + build artifacts out of the build context (npm ci installs fresh,
+# next build runs inside the image). apps/indexer is NOT ignored: its package.json is needed for the
+# root `npm ci` to validate the workspace lockfile.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/.wrangler
+**/*.tsbuildinfo
+**/next-env.d.ts
+apps/web/e2e
+**/*.test.ts
+**/*.test.tsx
+.git
+.gitignore
+.github
+.DS_Store
+*.log
+Dockerfile
+.dockerignore
+fly.toml

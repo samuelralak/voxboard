@@ -1,0 +1,38 @@
+# fly.toml — Voxboard web (apps/web), v1. Indexer deferred -> NEXT_PUBLIC_INDEXER_URL = "".
+# Run `fly deploy` from the repo ROOT so the build context includes all workspaces.
+
+app = "voxboard"
+primary_region = "fra"   # Frankfurt (EU). `flyctl platform regions` to change (ams/cdg/lhr/arn also EU).
+
+[build]
+  dockerfile = "Dockerfile"
+  [build.args]
+    # NEXT_PUBLIC_* is INLINED at `next build`; empty for v1. Set later via
+    # `fly deploy --build-arg NEXT_PUBLIC_INDEXER_URL=https://...` when the indexer ships.
+    NEXT_PUBLIC_INDEXER_URL = ""
+
+[env]
+  NODE_ENV = "production"
+
+[http_service]
+  internal_port = 3000        # MUST match the standalone server PORT (set in the Dockerfile)
+  force_https = true
+  auto_stop_machines = "stop" # scale-to-zero when idle (string enum, not a boolean)
+  auto_start_machines = true
+  min_machines_running = 0    # 0 = scale to zero (cold start on first request); set 1 to keep one warm
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 50
+    hard_limit = 100
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
