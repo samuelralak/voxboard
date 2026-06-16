@@ -71,10 +71,10 @@ export function useVoting(ids: string[], tallies?: Map<string, VoteTally>): Voti
     for (const s of mine.stale) {
       if (retracted.current.has(s.id) || !optimistic.has(s.targetId)) continue;
       retracted.current.add(s.id);
-      // Best-effort cleanup of a SUPERSEDED own-reaction. Intentionally un-scoped: `mine.stale` carries no
-      // coordinate, so this kind-5 has no `A` tag and the live `#A` deletions sub won't catch it — but it
-      // is harmless (latest-per-pubkey dedup already drops the superseded reaction from the score), and the
-      // SSR vote-deletion seed reconciles the orphan on the next load.
+      // Best-effort cleanup of a SUPERSEDED own-reaction. Intentionally un-scoped (mine.stale carries no
+      // coordinate, so no `A` tag) — which is fine: the board's live deletions sub keys on `#e` over the
+      // reaction ids, so this retraction IS caught live once the reaction is in the pool. Harmless
+      // regardless, since latest-per-pubkey dedup already drops the superseded reaction from the score.
       void publish(buildDelete({ ids: [s.id], kinds: [KIND.Reaction] })).catch(() => {});
     }
   }, [mine.stale, optimistic, publish]);

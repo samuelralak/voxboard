@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSubscribe } from "@nostr-dev-kit/react";
 import { NDKSubscriptionCacheUsage } from "@nostr-dev-kit/ndk";
 import {
@@ -39,12 +39,20 @@ const EMPTY: NostrEvent[] = [];
  * filterExistingEvents preserves already-received events across the re-subscribe, and the SSR seed covers
  * first paint regardless.
  */
-function useDebounced<T>(value: T, ms: number): T {
+function useDebounced<T>(value: T, ms: number, maxWait = ms * 4): T {
   const [debounced, setDebounced] = useState(value);
+  // Trailing debounce WITH a max-wait cap: the timer resets on each change (coalescing a hydration burst),
+  // but it can never be starved past `maxWait` by a sustained sub-`ms` stream — so a busy/adversarial relay
+  // can't indefinitely defer the `#e` re-subscribe and silently miss reactions/deletions of new content.
+  const lastApplied = useRef(0);
   useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), ms);
+    const delay = Math.min(ms, Math.max(0, maxWait - (Date.now() - lastApplied.current)));
+    const timer = setTimeout(() => {
+      lastApplied.current = Date.now();
+      setDebounced(value);
+    }, delay);
     return () => clearTimeout(timer);
-  }, [value, ms]);
+  }, [value, ms, maxWait]);
   return debounced;
 }
 
@@ -137,6 +145,9 @@ export function BoardSubscriptionProvider({
 
   // 4. deletions over the FULL candidate union (ideas+replies+labels+approvals+reactions) so a retraction
   //    of ANY of them is honored on the first derive pass (deriveBoardView consumes the kind-5 events).
+  //    Scope: `#e` (event id) only. The board's own kind-34550 is replace-only (latest-version-wins via
+  //    the feed sub), and `a`-coordinate (NIP-09) deletions of the board/labels are out of scope (no
+  //    in-app path emits them); add an `#a` deletions sub here if cross-client board retraction is needed.
   const deletionIds = useMemo(
     () => [...commentIds, ...modEvents.map((e) => e.id), ...reactionEvents.map((e) => e.id)],
     [commentIds, modEvents, reactionEvents],

@@ -101,7 +101,15 @@ export async function fetchBoardSnapshot(
         : Promise.resolve([] as NostrEvent[]),
     ]);
     const votes = voteEvents.map(validateNostrEvent).filter(notNull);
-    const deletions = deletionEvents.map(validateNostrEvent).filter(notNull);
+    // Vote retractions (kind-5 targeting a reaction id) are not covered by contentIds; seed them so a
+    // retracted vote doesn't transiently count at first paint before the live `#e` deletions sub round-
+    // trips. Bounded maxWait (tail-accuracy pass, not a first-paint blocker); runs only when votes exist.
+    const voteIds = votes.map((v) => v.id);
+    const voteDeletions =
+      voteIds.length > 0
+        ? await pool.querySync(relaySet, { kinds: [KIND.Delete], "#e": voteIds }, { maxWait: 2000 })
+        : [];
+    const deletions = [...deletionEvents, ...voteDeletions].map(validateNostrEvent).filter(notNull);
 
     return { board, ideas, replies: replies.map((r) => r.raw), moderation, votes, deletions };
   } finally {
@@ -216,7 +224,15 @@ export async function fetchIdeaThreadSnapshot(
       pool.querySync(relaySet, { kinds: [KIND.Delete], "#e": contentIds }, { maxWait: 3000 }),
     ]);
     const votes = voteEvents.map(validateNostrEvent).filter(notNull);
-    const deletions = deletionEvents.map(validateNostrEvent).filter(notNull);
+    // Vote retractions (kind-5 targeting a reaction id) are not covered by contentIds; seed them so a
+    // retracted vote doesn't transiently count at first paint before the live `#e` deletions sub round-
+    // trips. Bounded maxWait (tail-accuracy pass, not a first-paint blocker); runs only when votes exist.
+    const voteIds = votes.map((v) => v.id);
+    const voteDeletions =
+      voteIds.length > 0
+        ? await pool.querySync(relaySet, { kinds: [KIND.Delete], "#e": voteIds }, { maxWait: 2000 })
+        : [];
+    const deletions = [...deletionEvents, ...voteDeletions].map(validateNostrEvent).filter(notNull);
 
     return { idea, board, thread, moderation, votes, deletions };
   } finally {
