@@ -33,14 +33,18 @@ export function timeAgo(unixSeconds: number, nowMs = Date.now()): string {
   return `${Math.floor(days / 365)}y`;
 }
 
-/** ISO 8601 timestamp (UTC) for a <time dateTime> attribute. Deterministic, so SSR-safe. */
+/** ISO 8601 timestamp (UTC) for a <time dateTime> attribute. Deterministic, so SSR-safe. Returns "" for
+ *  an out-of-range stamp: `toISOString()` THROWS a RangeError past ±8.64e15ms, so a relay-supplied
+ *  created_at could otherwise crash the whole SSR render (the protocol schema now also bounds it). */
 export function isoTime(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toISOString();
+  const date = new Date(unixSeconds * 1000);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
 /** Full UTC timestamp for a hover title (e.g. "Sun, 15 Jun 2026 ..."). Deterministic, so SSR-safe. */
 export function fullTime(unixSeconds: number): string {
-  return new Date(unixSeconds * 1000).toUTCString();
+  const date = new Date(unixSeconds * 1000);
+  return Number.isNaN(date.getTime()) ? "" : date.toUTCString();
 }
 
 /** Compact counts, sign-preserving: 1, 42, 1.2k, 12k, 1.1m, and -1.2m for a deeply downvoted score. */

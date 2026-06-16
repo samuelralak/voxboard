@@ -21,7 +21,11 @@ const HEX128 = /^[0-9a-f]{128}$/;
 export const nostrEventSchema = z.object({
   id: z.string().regex(HEX64),
   pubkey: z.string().regex(HEX64),
-  created_at: z.number().int().nonnegative(),
+  // Reject implausibly-far-future stamps (> ~year 2244) at the relay boundary, for BOTH the web SSR and
+  // the indexer: a huge created_at otherwise makes `new Date(created_at*1000).toISOString()` throw a
+  // RangeError during render (a one-event, no-signature-needed per-board DoS). Stays well under the
+  // toISOString limit (8.64e12 s) while rejecting any non-legitimate value.
+  created_at: z.number().int().nonnegative().max(8_640_000_000),
   kind: z.number().int().nonnegative(),
   tags: z.array(z.array(z.string())),
   content: z.string(),
