@@ -92,7 +92,7 @@ export async function fetchBoardSnapshot(
       ...replies.map((r) => r.id),
       ...moderation.map((e) => e.id),
     ];
-    const [voteEvents, contentDeletions] = await Promise.all([
+    const [voteEvents, deletionEvents] = await Promise.all([
       ideaIds.length > 0
         ? pool.querySync(relaySet, { kinds: [KIND.Reaction], "#e": ideaIds }, { maxWait: 3000 })
         : Promise.resolve([] as NostrEvent[]),
@@ -101,16 +101,7 @@ export async function fetchBoardSnapshot(
         : Promise.resolve([] as NostrEvent[]),
     ]);
     const votes = voteEvents.map(validateNostrEvent).filter(notNull);
-    // Third pass: deletions that RETRACT one of those votes (kind-5 whose `e` target is a reaction id).
-    // The live deletions sub is coordinate-keyed (`#A`), which only matches Voxboard-tagged retractions;
-    // a cross-client or pre-Phase-9 retraction carries no `A`, so without seeding it here by reaction id
-    // the retracted vote would count forever (the score never self-corrects on reload).
-    const voteIds = votes.map((v) => v.id);
-    const voteDeletions =
-      voteIds.length > 0
-        ? await pool.querySync(relaySet, { kinds: [KIND.Delete], "#e": voteIds }, { maxWait: 3000 })
-        : [];
-    const deletions = [...contentDeletions, ...voteDeletions].map(validateNostrEvent).filter(notNull);
+    const deletions = deletionEvents.map(validateNostrEvent).filter(notNull);
 
     return { board, ideas, replies: replies.map((r) => r.raw), moderation, votes, deletions };
   } finally {
@@ -220,20 +211,12 @@ export async function fetchIdeaThreadSnapshot(
     const replyIds = replies.map((r) => r.id);
     const voteTargetIds = [idea.id, ...replyIds];
     const contentIds = [idea.id, ...replyIds, ...moderation.map((e) => e.id)];
-    const [voteEvents, contentDeletions] = await Promise.all([
+    const [voteEvents, deletionEvents] = await Promise.all([
       pool.querySync(relaySet, { kinds: [KIND.Reaction], "#e": voteTargetIds }, { maxWait: 3000 }),
       pool.querySync(relaySet, { kinds: [KIND.Delete], "#e": contentIds }, { maxWait: 3000 }),
     ]);
     const votes = voteEvents.map(validateNostrEvent).filter(notNull);
-    // Third pass: deletions retracting one of those votes (see fetchBoardSnapshot) — the `#A` live sub
-    // only catches Voxboard-tagged retractions, so an untagged one must be seeded here by reaction id or
-    // the retracted vote counts forever.
-    const voteIds = votes.map((v) => v.id);
-    const voteDeletions =
-      voteIds.length > 0
-        ? await pool.querySync(relaySet, { kinds: [KIND.Delete], "#e": voteIds }, { maxWait: 3000 })
-        : [];
-    const deletions = [...contentDeletions, ...voteDeletions].map(validateNostrEvent).filter(notNull);
+    const deletions = deletionEvents.map(validateNostrEvent).filter(notNull);
 
     return { idea, board, thread, moderation, votes, deletions };
   } finally {
