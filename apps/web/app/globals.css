@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/* Dark mode is driven by data-theme on <html> (set pre-paint by themeScript, toggled by ThemeProvider). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/*
+ * Design tokens (docs/DESIGN.md): warm paper-and-ink light mode as primary, dark at parity, a single
+ * electric accent, low-saturation status hues. Raw values live per-mode below; @theme inline maps them
+ * to Tailwind color utilities (bg-canvas, text-ink, border-border, bg-accent, bg-status-planned, ...).
+ */
+:root {
+  --canvas: #fbfaf7;
+  --surface: #ffffff;
+  --surface-2: #f4f2ec;
+  --ink: #1a1a18;
+  --muted: #6b6b63;
+  --border: #e6e2d8;
+  --accent: #2b4bf2;
+  --accent-hover: #2440d4; /* deepen (not fade) the fill on hover; the white label stays crisp */
+  --accent-foreground: #ffffff;
+
+  /* Darkened for WCAG AA (>= ~4.5:1) on the light canvas, since the label text uses these hues. */
+  --status-open: #586170;
+  --status-under-review: #946708;
+  --status-backlog: #5f646d;
+  --status-planned: #6741d9;
+  --status-in-progress: #1f63b8;
+  --status-implemented: #1f7d44;
+  --status-declined: #b23a52;
+  --status-duplicate: #6e6488;
+  --status-closed: #5f5f57;
+
+  /* Zaps (sats) get their own lightning-amber, distinct from under-review. */
+  --zap: #a35c0a;
+}
+
+[data-theme="dark"] {
+  --canvas: #0e0e0d;
+  --surface: #161614;
+  --surface-2: #1d1d1a;
+  --ink: #eceae3;
+  --muted: #9c9a90;
+  --border: #2a2a26;
+  --accent: #6e86ff;
+  --accent-hover: #8a9cff; /* lean brighter on hover in dark mode */
+  --accent-foreground: #0e0e0d;
+
+  --status-open: #7c8aa0;
+  --status-under-review: #d79a2b;
+  --status-backlog: #9aa0aa;
+  --status-planned: #957dff;
+  --status-in-progress: #4f9af0;
+  --status-implemented: #43b574;
+  --status-declined: #d2748a;
+  --status-duplicate: #ab9fc2;
+  --status-closed: #8e8e85;
+
+  --zap: #e3a23a;
+}
+
+@theme inline {
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-status-open: var(--status-open);
+  --color-status-under-review: var(--status-under-review);
+  --color-status-backlog: var(--status-backlog);
+  --color-status-planned: var(--status-planned);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-implemented: var(--status-implemented);
+  --color-status-declined: var(--status-declined);
+  --color-status-duplicate: var(--status-duplicate);
+  --color-status-closed: var(--status-closed);
+  --color-zap: var(--zap);
+
+  /* Role-named soft elevation (Tailwind's shadow-sm/md are size-named). Whisper-quiet, per DESIGN.md. */
+  --shadow-card: 0 1px 2px rgb(20 20 18 / 0.04), 0 1px 3px rgb(20 20 18 / 0.03);
+  --shadow-pop: 0 8px 28px rgb(20 20 18 / 0.12);
+}
+
+/* Fraunces ships its opsz axis (see lib/fonts.ts); this drives the high-contrast display cut on large
+   headings. Tailwind's text scale can't set font-variation-settings, so this is a named utility. */
+@utility font-display-lg {
+  font-variation-settings: "opsz" 88;
+}
+
+/* Right-edge fade for the horizontally-scrolling roadmap rail: the clipped column reads as "more to
+   the right" instead of a hard cut. Tailwind can't express a mask-image gradient as a utility. */
+@utility roadmap-rail {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+}
+
+html {
+  color-scheme: light;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
