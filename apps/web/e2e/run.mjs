@@ -127,12 +127,28 @@ function publishFixtures() {
     ...T([["e", ideaC], ["k", "1111"], ["p", pub]]),
   ]);
 
+  // a BIG board (more ideas than EAGER_ROWS=12) to exercise feed virtualization: rows past the eager
+  // window must lazy-mount on scroll, not all on first paint.
+  const bigSlug = `vox-e2e-big-${pub.slice(0, 8)}`;
+  const bigCoord = `34550:${pub}:${bigSlug}`;
+  publishEvent(sec, 34550, "", [["d", bigSlug], ["name", "E2E Big Board"]]);
+  const bigIdeaIds = [];
+  for (let i = 1; i <= 20; i++) {
+    const n = String(i).padStart(2, "0");
+    bigIdeaIds.push(
+      publishEvent(sec, 1111, `big idea ${n} body`, [
+        ["A", bigCoord], ["K", "34550"], ["P", pub], ["a", bigCoord], ["k", "34550"], ["p", pub], ["subject", `E2E big idea ${n}`],
+      ]),
+    );
+  }
+  const bigNaddr = encode("naddr", ["-d", bigSlug, "--pubkey", pub, "-k", "34550"]);
+
   const naddr = encode("naddr", ["-d", slug, "--pubkey", pub, "-k", "34550"]);
   const emptyNaddr = encode("naddr", ["-d", emptySlug, "--pubkey", pub, "-k", "34550"]);
   const neventA = encode("nevent", [ideaA]);
   const neventB = encode("nevent", [ideaB]);
   const neventC = encode("nevent", [ideaC]);
-  return { sec, pub, slug, coord, ideaA, ideaB, ideaC, reply, naddr, emptyNaddr, neventA, neventB, neventC, replierSec: replier.sec, notifReply };
+  return { sec, pub, slug, coord, ideaA, ideaB, ideaC, reply, naddr, emptyNaddr, neventA, neventB, neventC, replierSec: replier.sec, notifReply, bigNaddr, bigIdeaIds };
 }
 
 // ---------------------------------------------------------------------------
@@ -341,10 +357,44 @@ async function main() {
       { timeout: 12000 },
     );
     check("notification bell counts a #p reply on the idea page (provider #A active)", gotNotif);
+
+    // ----- feed virtualization: a board with more ideas than EAGER_ROWS must defer + lazy-mount the tail -----
+    section("Feed virtualization");
+    await page.setViewport({ width: 1000, height: 600 });
+    await page.goto(`${BASE_URL}/b/${fx.bigNaddr}`, { waitUntil: "domcontentloaded" });
+    // Wait until all 20 ideas have loaded as ROWS (each idea = one child of [data-feed], whether mounted
+    // or a lazy placeholder), so a low MOUNTED count means deferral, not slow loading.
+    const allLoaded = await waitFor(
+      page,
+      () => (document.querySelector("[data-feed]")?.children.length ?? 0) >= 20,
+      { timeout: 25000 },
+    );
+    const rows = await page.evaluate(() => document.querySelector("[data-feed]")?.children.length ?? 0);
+    const mountedBefore = await page.evaluate(() => document.querySelectorAll("article").length);
+    check("all 20 ideas load as feed rows", allLoaded, `rows=${rows}`);
+    check(
+      "tail rows are deferred on load (fewer mounted than loaded)",
+      rows >= 20 && mountedBefore < rows,
+      `loaded=${rows} mounted=${mountedBefore}`,
+    );
+    // Scroll to the bottom: the IntersectionObserver should mount the deferred tail rows.
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const grew = await waitFor(
+      page,
+      (n) => document.querySelectorAll("article").length > n,
+      { timeout: 8000 },
+      mountedBefore,
+    );
+    const mountedAfter = await page.evaluate(() => document.querySelectorAll("article").length);
+    check(
+      "scrolling mounts the deferred tail rows",
+      grew && mountedAfter > mountedBefore,
+      `mounted ${mountedBefore} -> ${mountedAfter} of ${rows}`,
+    );
   } finally {
     if (browser) await browser.close();
     // cleanup fixtures (advisory NIP-09)
-    for (const id of [fx.ideaA, fx.ideaB, fx.ideaC, fx.reply]) deleteEvent(fx.sec, id);
+    for (const id of [fx.ideaA, fx.ideaB, fx.ideaC, fx.reply, ...fx.bigIdeaIds]) deleteEvent(fx.sec, id);
     deleteEvent(fx.replierSec, fx.notifReply); // authored by the replier key
   }
 

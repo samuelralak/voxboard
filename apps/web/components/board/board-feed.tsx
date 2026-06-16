@@ -9,6 +9,7 @@ import { useModeration } from "@/hooks/use-moderation";
 import { useLoginGate } from "@/components/auth/login-gate";
 import { openDialog } from "@/lib/dialog";
 import { ClientOnly } from "@/components/util/client-only";
+import { LazyRow } from "@/components/util/lazy-row";
 import { BoardHeader } from "./board-header";
 import { BoardDialog } from "./board-dialog";
 import { PendingApprovals } from "./pending-approvals";
@@ -23,6 +24,11 @@ const VIEWS = [
   { key: "roadmap", label: "Roadmap" },
 ] as const;
 type View = (typeof VIEWS)[number]["key"];
+
+// Rows before this index render eagerly so SSR + first paint carry real content (SEO, unfurls, no-JS)
+// and the above-the-fold feed is immediate; only the long tail lazy-mounts, so a large board does not
+// open a kind-0 profile sub + NIP-05 verify + WoT check for every idea on first paint.
+const EAGER_ROWS = 12;
 
 /**
  * The live board experience: header + sort/filter + the feed. The board's relay traffic is owned by the
@@ -113,15 +119,21 @@ export function BoardFeed({ board }: { board: Board }) {
           ) : visible.length === 0 ? (
             <FeedEmpty />
           ) : (
-            <div>
-              {visible.map((row) => (
-                <FeedRowContainer
-                  key={row.idea.id}
-                  row={row}
-                  href={`/d/${ideaNevent({ id: row.idea.id, author: row.idea.pubkey })}`}
-                  voting={voting}
-                />
-              ))}
+            <div data-feed>
+              {visible.map((row, i) => {
+                const node = (
+                  <FeedRowContainer
+                    row={row}
+                    href={`/d/${ideaNevent({ id: row.idea.id, author: row.idea.pubkey })}`}
+                    voting={voting}
+                  />
+                );
+                return i < EAGER_ROWS ? (
+                  <div key={row.idea.id}>{node}</div>
+                ) : (
+                  <LazyRow key={row.idea.id}>{node}</LazyRow>
+                );
+              })}
             </div>
           )}
         </>
