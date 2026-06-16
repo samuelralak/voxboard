@@ -120,20 +120,19 @@ export function BoardFeed({ board }: { board: Board }) {
             <FeedEmpty />
           ) : (
             <div data-feed>
-              {visible.map((row, i) => {
-                const node = (
+              {visible.map((row, i) => (
+                // Every row uses the SAME wrapper type so a score-driven re-sort across the eager
+                // boundary preserves the row by key (no unmount/remount flicker); `eager` just controls
+                // initial mount. The first EAGER_ROWS mount immediately (SSR/above-the-fold); the tail
+                // lazy-mounts so a large board does not open a profile/NIP-05/WoT lookup for every idea.
+                <LazyRow key={row.idea.id} eager={i < EAGER_ROWS}>
                   <FeedRowContainer
                     row={row}
                     href={`/d/${ideaNevent({ id: row.idea.id, author: row.idea.pubkey })}`}
                     voting={voting}
                   />
-                );
-                return i < EAGER_ROWS ? (
-                  <div key={row.idea.id}>{node}</div>
-                ) : (
-                  <LazyRow key={row.idea.id}>{node}</LazyRow>
-                );
-              })}
+                </LazyRow>
+              ))}
             </div>
           )}
         </>

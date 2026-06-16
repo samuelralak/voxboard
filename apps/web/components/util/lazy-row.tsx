@@ -6,14 +6,29 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
  * Defers mounting `children` until the row scrolls within a buffer of the viewport, so a long feed does
  * not mount every row at once. Each feed row opens a kind-0 profile lookup + a NIP-05 verify + a
  * Web-of-Trust check; without this a board with hundreds of ideas fires all of them on first paint.
- * Off-screen-below rows render a height-reserving placeholder so the scrollbar + scroll position stay
- * stable. Once a row is revealed it STAYS mounted: no unmount flicker, and no above-the-viewport reflow
- * jank (the failure mode of naive unmount-windowing when a row's real height differs from its estimate).
- * Plain IntersectionObserver, no dependency.
+ *
+ * `eager` rows (the first EAGER_ROWS) mount immediately so SSR + first paint carry real content; the tail
+ * renders a height-reserving placeholder until revealed. Once a row is shown it STAYS shown (mount-once):
+ * no unmount flicker. Critically, EVERY row is wrapped in this same component type, so a score-driven
+ * re-sort that moves a row across the eager boundary preserves the React instance by key instead of
+ * tearing it down and remounting a blank placeholder. Plain IntersectionObserver, no dependency.
  */
-export function LazyRow({ children, minHeight = 120 }: { children: ReactNode; minHeight?: number }) {
+export function LazyRow({
+  children,
+  minHeight = 120,
+  eager = false,
+}: {
+  children: ReactNode;
+  minHeight?: number;
+  eager?: boolean;
+}) {
   const ref = useRef<HTMLDivElement>(null);
-  const [shown, setShown] = useState(false);
+  const [shown, setShown] = useState(eager);
+
+  // A row that re-sorts INTO the eager band mounts at once (and, mount-once, stays mounted thereafter).
+  useEffect(() => {
+    if (eager) setShown(true);
+  }, [eager]);
 
   useEffect(() => {
     if (shown) return;
