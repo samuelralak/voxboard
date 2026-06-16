@@ -22,6 +22,9 @@ export interface VoteTarget {
   pubkey: string;
   kind?: number;
   relay?: string;
+  /** the board coordinate (34550:pubkey:d) the target belongs to. Emitted as an `A` tag so the vote is
+   *  discoverable by a stable coordinate-keyed `#A` subscription, not only by the target event id. */
+  coordinate?: string;
 }
 
 export interface BuildVoteInput {
@@ -36,6 +39,10 @@ export function buildVote(input: BuildVoteInput): EventTemplate {
     ["e", target.id, target.relay ?? "", target.pubkey],
     target.relay ? ["p", target.pubkey, target.relay] : ["p", target.pubkey],
     ["k", String(target.kind ?? KIND.Comment)],
+    // Board coordinate (NIP-22-style uppercase root scope) so the vote is reachable by a stable `#A`
+    // subscription. Omitted (back-compat) when the caller has no coordinate; parseVote ignores it
+    // (tallying still keys off the `e` target), so old/cross-client votes are unaffected.
+    target.coordinate ? ["A", target.coordinate] : undefined,
   ]);
   return {
     kind: KIND.Reaction,

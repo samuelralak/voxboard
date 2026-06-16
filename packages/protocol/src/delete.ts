@@ -22,6 +22,9 @@ export interface BuildDeleteInput {
   coords?: string[];
   /** kinds of the deleted events (recommended) */
   kinds?: number[];
+  /** the board coordinate (34550:pubkey:d) this retraction belongs to. Emitted as an `A` tag so it is
+   *  reachable by a stable `#A` subscription (alongside the `e`/`a` targets). Purely additive. */
+  scope?: string;
   reason?: string;
   createdAt?: number;
 }
@@ -31,6 +34,9 @@ export function buildDelete(input: BuildDeleteInput): EventTemplate {
   for (const id of input.ids ?? []) tags.push(["e", id]);
   for (const coord of input.coords ?? []) tags.push(["a", coord]);
   for (const kind of input.kinds ?? []) tags.push(["k", String(kind)]);
+  // Board coordinate (uppercase root scope) so the retraction is reachable by a stable `#A` sub.
+  // parseDelete ignores it (the deletion still applies by its `e`/`a` targets), so it is additive.
+  if (input.scope) tags.push(["A", input.scope]);
   return {
     kind: KIND.Delete,
     created_at: input.createdAt ?? now(),

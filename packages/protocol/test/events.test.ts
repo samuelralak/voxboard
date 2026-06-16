@@ -184,6 +184,17 @@ describe("vote (7)", () => {
     const byTarget = tallyVotesByTarget(votes);
     expect(byTarget.get(target)!.score).toBe(0);
   });
+
+  it("emits the board coordinate as an `A` tag when given (#A sub), and is back-compatible without one", () => {
+    const COORD = `34550:${POSTER}:my-board`;
+    const withCoord = buildVote({ target: { id: "f5".repeat(32), pubkey: POSTER, coordinate: COORD }, direction: "up" });
+    expect(withCoord.tags).toContainEqual(["A", COORD]);
+    // parseVote still tallies by the `e` target; the A tag is relay-filter metadata only.
+    expect(parseVote(asEvent(withCoord, MOD))!.targetId).toBe("f5".repeat(32));
+    // no coordinate -> no A tag, so old / cross-client votes are unaffected.
+    const without = buildVote({ target: { id: "f5".repeat(32), pubkey: POSTER }, direction: "up" });
+    expect(without.tags.some((t) => t[0] === "A")).toBe(false);
+  });
 });
 
 describe("status (1985 label)", () => {
@@ -317,6 +328,18 @@ describe("delete (5)", () => {
     const hidden = deletedEventIds([del], [older, newer]);
     expect(hidden.has(older.id)).toBe(true);
     expect(hidden.has(newer.id)).toBe(false);
+  });
+
+  it("emits the board coordinate as an `A` tag when scoped (#A sub), still applies by its e target", () => {
+    const COORD = `34550:${OWNER}:${SLUG}`;
+    const mine = asEvent(buildIdea({ board: BOARD, title: "mine" }), POSTER, "33".repeat(32));
+    const tmpl = buildDelete({ ids: [mine.id], kinds: [1111], scope: COORD });
+    expect(tmpl.tags).toContainEqual(["A", COORD]);
+    // parseDelete ignores the A tag; the deletion still hides its `e` target.
+    const del = parseDelete(asEvent(tmpl, POSTER))!;
+    expect(deletedEventIds([del], [mine]).has(mine.id)).toBe(true);
+    // no scope -> no A tag (additive only, old/cross-client deletions unaffected).
+    expect(buildDelete({ ids: [mine.id], kinds: [1111] }).tags.some((t) => t[0] === "A")).toBe(false);
   });
 });
 
