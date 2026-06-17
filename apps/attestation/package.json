@@ -1,0 +1,22 @@
+{
+  "name": "@voxboard/attestation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Voxboard attestation signer: the platform issuer key signs the strict-allowlist set (carrier 1) + per-board labels (carrier 2). The first slice of the future Node/Fly indexer. See docs/ATTESTATION.md.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@noble/hashes": "^1.8.0",
+    "@voxboard/protocol": "*",
+    "nostr-tools": "2.23.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}
