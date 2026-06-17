@@ -36,21 +36,18 @@ export default async function DiscoverPage() {
       </header>
 
       {boards.length === 0 ? (
-        <section className="mx-auto mt-16 max-w-lg text-center sm:mt-24">
-          <span className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-border bg-surface-2 text-muted">
-            <HugeiconsIcon icon={Compass01Icon} size={26} strokeWidth={1.5} aria-hidden />
+        <div className="mt-10 rounded-md border border-border bg-surface px-6 py-16 text-center">
+          <span className="mx-auto flex size-10 items-center justify-center rounded-full bg-surface-2 text-muted">
+            <HugeiconsIcon icon={Compass01Icon} size={20} strokeWidth={1.5} />
           </span>
-          <h2 className="mt-6 font-display font-display-lg text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
-            Discover is waiting for its first board
-          </h2>
-          <p className="mx-auto mt-3 max-w-md text-base leading-relaxed text-muted">
-            Public feedback boards appear here as they go live. Be the first to start one, and it lands
-            right here for everyone to find.
+          <p className="mt-3 font-display text-lg text-ink">No boards found</p>
+          <p className="mx-auto mt-1 max-w-sm text-sm leading-relaxed text-muted">
+            The discovery relays did not return any boards right now. Be the first to start one.
           </p>
-          <div className="mt-7 flex justify-center">
-            <NewBoardButton size="lg" label="Start a board" />
+          <div className="mt-4 flex justify-center">
+            <NewBoardButton />
           </div>
-        </section>
+        </div>
       ) : (
         <div className="mt-10">
           <p className="font-mono text-xs uppercase tracking-widest tabular-nums text-muted">
