@@ -83,11 +83,14 @@ export function IdeaDetail({
           </div>
         ) : null}
 
-        <div className="flex items-start justify-between gap-3">
+        {/* Stack the title over the actions on mobile so a long title claims the full measure; only at
+            sm+ do they share a row. The action cluster wraps, so it can never squeeze the title to a
+            zero-width column (which forced the title to break one character per line). */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <h1 className="min-w-0 break-words font-display text-2xl font-semibold leading-tight tracking-tight text-ink">
             {idea.title}
           </h1>
-          <div className="flex shrink-0 items-center gap-1">
+          <div className="flex shrink-0 flex-wrap items-center gap-1 sm:justify-end">
             <ZapButton eventId={idea.id} recipientPubkey={idea.pubkey} lud16={authorLud16} />
             {moderation?.canModerate ? (
               <ModerationMenu

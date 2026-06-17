@@ -37,7 +37,7 @@ const idea = parseIdea(
   sign(
     buildIdea({
       board: BOARD,
-      title: "Export the roadmap as CSV / JSON",
+      title: "Export the roadmap as CSV / JSON, ideally with a per-status-column public API endpoint",
       body: "Would love to pull the roadmap into our own planning tools.\n\nA simple CSV (and ideally JSON) export per status column would be perfect, even just the public columns.",
       categories: ["feature"],
       createdAt: NOW - 27 * 3600,
@@ -94,6 +94,9 @@ export default function IdeaPreview() {
         replyCount={replyCount}
         status="planned"
         zapSats={880}
+        onCopyLink={() => {}}
+        canDelete
+        onDelete={async () => {}}
       />
       <section className="border-t border-border pt-6">
         <h2 className="font-mono text-xs uppercase tracking-widest text-muted">
