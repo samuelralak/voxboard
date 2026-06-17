@@ -11,23 +11,24 @@ import { FeedSkeleton } from "@/components/board/feed-states";
 export default function BoardLoading() {
   return (
     <Shell aria-busy>
-      {/* masthead: square board tile + name + description + meta, with two action buttons */}
-      <header
-        className="flex flex-col gap-4 py-8 sm:flex-row sm:items-start sm:justify-between"
-        aria-hidden
-      >
-        <div className="flex min-w-0 items-start gap-4">
-          <div className="size-10 shrink-0 rounded-md bg-surface-2 motion-safe:animate-pulse" />
-          <div className="min-w-0 space-y-2.5">
-            <div className="h-7 w-52 max-w-full rounded bg-surface-2 motion-safe:animate-pulse" />
-            <div className="h-4 w-72 max-w-full rounded bg-surface-2 motion-safe:animate-pulse" />
-            <div className="h-3 w-40 rounded bg-surface-2 motion-safe:animate-pulse" />
+      {/* masthead: identity row (tile + name + actions), then full-measure description + meta lines */}
+      <header className="py-8" aria-hidden>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="size-10 shrink-0 rounded-md bg-surface-2 motion-safe:animate-pulse" />
+            <div className="mt-1 h-7 w-52 max-w-full rounded bg-surface-2 motion-safe:animate-pulse" />
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="size-9 rounded-md bg-surface-2 motion-safe:animate-pulse" />
+            <div className="size-9 rounded-md bg-surface-2 motion-safe:animate-pulse" />
+            <div className="h-9 w-28 rounded-md bg-surface-2 motion-safe:animate-pulse" />
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <div className="h-9 w-24 rounded-md bg-surface-2 motion-safe:animate-pulse" />
-          <div className="h-9 w-24 rounded-md bg-surface-2 motion-safe:animate-pulse" />
+        <div className="mt-4 space-y-2">
+          <div className="h-4 w-full rounded bg-surface-2 motion-safe:animate-pulse" />
+          <div className="h-4 w-3/5 rounded bg-surface-2 motion-safe:animate-pulse" />
         </div>
+        <div className="mt-3 h-3 w-40 rounded bg-surface-2 motion-safe:animate-pulse" />
       </header>
 
       {/* feed / roadmap tabs */}

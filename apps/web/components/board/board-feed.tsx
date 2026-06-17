@@ -74,6 +74,9 @@ export function BoardFeed({ board, attested = false }: { board: Board; attested?
         ideaCount={rows.length}
         attested={attested}
         onNewIdea={onNewIdea}
+        onCopyLink={() => {
+          if (typeof window !== "undefined") void navigator.clipboard?.writeText(window.location.href);
+        }}
         {...(canEdit ? { onEdit: () => openDialog(editId) } : {})}
       />
       <ClientOnly>

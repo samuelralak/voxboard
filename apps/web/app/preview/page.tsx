@@ -42,7 +42,7 @@ const board = parseBoard(
       name: "Voxboard feedback",
       description:
         "A little meta: tell us what to build for Voxboard itself. Post an idea, vote on what matters, and watch it move from planned to shipped.",
-      categories: ["bug", "feature", "question"],
+      categories: ["feature", "bug", "question", "ux", "performance", "mobile", "docs"],
       mode: "open",
     }),
     OWNER,
@@ -177,7 +177,14 @@ export default function PreviewPage() {
 
   return (
     <Shell>
-      <BoardHeader board={board} ideaCount={rows.length} />
+      <BoardHeader
+        board={board}
+        ideaCount={rows.length}
+        attested
+        onNewIdea={() => {}}
+        onEdit={() => {}}
+        onCopyLink={() => navigator.clipboard?.writeText(window.location.href)}
+      />
       <FeedToolbar
         sort={sort}
         onSort={setSort}
