@@ -28,29 +28,47 @@ export function useAttest() {
       if (!ATTESTATION_URL || !ndk?.signer) return;
       const url = `${ATTESTATION_URL}/v1/attest`;
       const body = JSON.stringify({ coordinate });
+      const payload = sha256Hex(body);
 
-      const template = buildHttpAuth({ url, method: "POST", payload: sha256Hex(body) });
-      const auth = new NDKEvent(ndk, {
-        kind: template.kind as NDKKind,
-        created_at: template.created_at,
-        tags: template.tags,
-        content: template.content,
-      });
-      await auth.sign(); // signs with the user's key; this token is sent to the service, never to relays
-      // UTF-8-safe base64 (matches the server's Buffer.from(token,'base64').toString('utf8') decode), so a
-      // non-ASCII char anywhere in the event can't make btoa throw.
-      const bytes = new TextEncoder().encode(JSON.stringify(auth.rawEvent()));
-      const token = btoa(String.fromCharCode(...bytes));
+      // A freshly created board may not have propagated to the service's relays yet, so the first attempt
+      // can 403 "board not found". Retry a few times with backoff (re-signing each time so the NIP-98 token
+      // stays fresh). Only retry transient failures (network / 5xx / not-found); a true ownership/conformance
+      // 403 stops immediately. Still fire-and-forget: any final failure self-heals on the next board re-save.
+      const RETRY_DELAYS_MS = [0, 2000, 4000];
+      for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt += 1) {
+        if (RETRY_DELAYS_MS[attempt]) await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
 
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Nostr ${token}` },
-        body,
-      });
-      if (!res.ok) {
-        // surface for diagnostics without breaking the create flow (the caller also catches)
-        console.warn(`attestation request failed (${res.status})`, await res.text().catch(() => ""));
+        const template = buildHttpAuth({ url, method: "POST", payload });
+        const auth = new NDKEvent(ndk, {
+          kind: template.kind as NDKKind,
+          created_at: template.created_at,
+          tags: template.tags,
+          content: template.content,
+        });
+        await auth.sign(); // signs with the user's key; this token is sent to the service, never to relays
+        // UTF-8-safe base64 (matches the server's Buffer.from(token,'base64').toString('utf8') decode), so a
+        // non-ASCII char anywhere in the event can't make btoa throw.
+        const bytes = new TextEncoder().encode(JSON.stringify(auth.rawEvent()));
+        const token = btoa(String.fromCharCode(...bytes));
+
+        try {
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Nostr ${token}` },
+            body,
+          });
+          if (res.ok) return;
+          const text = await res.text().catch(() => "");
+          const retryable = res.status >= 500 || (res.status === 403 && /not found/i.test(text));
+          if (!retryable) {
+            console.warn(`attestation rejected (${res.status})`, text);
+            return; // a real ownership/conformance rejection: do not retry
+          }
+        } catch {
+          // network error: fall through to the next attempt
+        }
       }
+      console.warn("attestation request did not succeed after retries (will heal on the next board save)");
     },
     [ndk],
   );

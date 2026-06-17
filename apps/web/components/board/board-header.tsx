@@ -2,6 +2,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { Copy01Icon, PencilEdit01Icon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import type { Board } from "@voxboard/protocol";
 import { Avatar } from "@/components/ui/avatar";
+import { AttestedBadge } from "@/components/ui/chip";
 import { Button } from "@/components/ui/button";
 import { npubShort } from "@/lib/format";
 
@@ -9,12 +10,15 @@ import { npubShort } from "@/lib/format";
 export function BoardHeader({
   board,
   ideaCount,
+  attested = false,
   onCopyLink,
   onNewIdea,
   onEdit,
 }: {
   board: Board;
   ideaCount?: number;
+  /** platform-attested board (drives the "Attested" badge) */
+  attested?: boolean;
   onCopyLink?: () => void;
   onNewIdea?: () => void;
   onEdit?: () => void;
@@ -31,6 +35,7 @@ export function BoardHeader({
             <p className="mt-1 max-w-2xl break-words text-sm leading-relaxed text-muted">{board.description}</p>
           ) : null}
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-xs text-muted">
+            {attested ? <AttestedBadge /> : null}
             <span className="tabular-nums">{npubShort(board.pubkey)}</span>
             {typeof ideaCount === "number" ? (
               <span className="tabular-nums">

@@ -19,6 +19,7 @@ export function BoardView({
   initialModeration = [],
   initialVotes = [],
   initialDeletions = [],
+  attested = false,
 }: {
   coordinate: string;
   initialBoard: Board | null;
@@ -27,6 +28,8 @@ export function BoardView({
   initialModeration?: NostrEvent[];
   initialVotes?: NostrEvent[];
   initialDeletions?: NostrEvent[];
+  /** platform-attested board (from the SSR snapshot) — drives the masthead badge */
+  attested?: boolean;
 }) {
   const live = useBoard(coordinate);
 
@@ -50,6 +53,11 @@ export function BoardView({
     );
   }
 
+  // The SSR `attested` flag was computed for initialBoard's exact version. Show the badge only when the
+  // DISPLAYED board is still that version: a client-side edit (or any newer live version) auto-revokes it,
+  // matching the attestation's anti-swap event-id pin, so a stale badge never rides on an unattested edit.
+  const attestedNow = attested && !!initialBoard && board.raw.id === initialBoard.raw.id;
+
   return (
     <BoardSubscriptionProvider
       board={board}
@@ -59,7 +67,7 @@ export function BoardView({
       initialVotes={initialVotes}
       initialDeletions={initialDeletions}
     >
-      <BoardFeed board={board} />
+      <BoardFeed board={board} attested={attestedNow} />
     </BoardSubscriptionProvider>
   );
 }

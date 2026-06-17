@@ -67,6 +67,27 @@ export function VerifiedChip({
 }
 
 /**
+ * Platform attestation badge: the board is on the Voxboard strict allowlist (the issuer-signed set, pinned
+ * to this exact board version). A quiet filled pill with the checkmark-badge glyph, label, and tooltip —
+ * earned trust, but still inside the single-accent rule (ink glyph, no accent flood), like VerifiedChip.
+ */
+export function AttestedBadge({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full bg-surface-2 px-2 py-0.5 align-middle text-xs font-medium text-ink",
+        className,
+      )}
+      title="Attested by Voxboard — a verified board on this platform"
+    >
+      <HugeiconsIcon icon={CheckmarkBadge01Icon} size={13} strokeWidth={2} className="text-ink" aria-hidden />
+      <span className="sr-only">Platform attested: </span>
+      Attested
+    </span>
+  );
+}
+
+/**
  * "In your network" signal: the viewer follows this author (Web-of-Trust depth-1). A quiet ink glyph (no
  * accent — that stays reserved for the primary action), with the meaning in the tooltip + sr-only text.
  */

@@ -8,14 +8,14 @@
  * publish keeps one source of truth: the deployment's own ATTESTATION_PUBKEY.
  */
 
-import { attestationNamespace } from "@voxboard/protocol";
+import "server-only";
 
-const HEX64 = /^[0-9a-f]{64}$/;
+import { attestationNamespace, isHex64 } from "@voxboard/protocol";
 
 /** The platform issuer pubkey (hex) for THIS deployment, or null when attestation isn't configured. */
 export function issuerPubkey(): string | null {
   const value = (process.env.ATTESTATION_PUBKEY ?? "").trim().toLowerCase();
-  return HEX64.test(value) ? value : null;
+  return isHex64(value) ? value : null;
 }
 
 /**

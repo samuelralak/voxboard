@@ -43,7 +43,7 @@ export default async function BoardPage({ params }: PageProps) {
   const resolved = resolve(naddr);
   if (!resolved) notFound();
 
-  const { board, ideas, replies, moderation, votes, deletions } = await fetchBoardSnapshot(
+  const { board, ideas, replies, moderation, votes, deletions, attested } = await fetchBoardSnapshot(
     resolved.coordinate,
     resolved.relays,
   );
@@ -58,6 +58,7 @@ export default async function BoardPage({ params }: PageProps) {
         initialModeration={moderation}
         initialVotes={votes}
         initialDeletions={deletions}
+        attested={attested}
       />
     </Shell>
   );

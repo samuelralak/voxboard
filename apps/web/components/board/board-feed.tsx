@@ -34,7 +34,7 @@ const EAGER_ROWS = 12;
  * The live board experience: header + sort/filter + the feed. The board's relay traffic is owned by the
  * BoardSubscriptionProvider (mounted by BoardView); this reads the derived view via useBoardData().
  */
-export function BoardFeed({ board }: { board: Board }) {
+export function BoardFeed({ board, attested = false }: { board: Board; attested?: boolean }) {
   const { rows, eose, pending } = useBoardData();
   const moderation = useModeration(board);
   const [sort, setSort] = useState<SortKey>("top");
@@ -72,6 +72,7 @@ export function BoardFeed({ board }: { board: Board }) {
       <BoardHeader
         board={board}
         ideaCount={rows.length}
+        attested={attested}
         onNewIdea={onNewIdea}
         {...(canEdit ? { onEdit: () => openDialog(editId) } : {})}
       />
