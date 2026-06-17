@@ -181,18 +181,25 @@ describe("misc routes", () => {
 });
 
 describe("loadContext fail-closed config", () => {
-  const key = bytesToHex(generateSecretKey());
+  const sk = generateSecretKey();
+  const key = bytesToHex(sk);
+  const pub = getPublicKey(sk);
+  const prodOk = { NODE_ENV: "production", ATTESTATION_PRIVATE_KEY: key, ATTESTATION_PUBKEY: pub, ATTESTATION_PUBLIC_URL: "https://a.test" };
 
   it("throws in production when ATTESTATION_PUBLIC_URL is unset (no proxy-header url trust)", () => {
-    expect(() => loadContext({ NODE_ENV: "production", ATTESTATION_PRIVATE_KEY: key })).toThrow(/ATTESTATION_PUBLIC_URL/);
+    expect(() => loadContext({ ...prodOk, ATTESTATION_PUBLIC_URL: undefined })).toThrow(/ATTESTATION_PUBLIC_URL/);
   });
 
-  it("loads in production when ATTESTATION_PUBLIC_URL is set", () => {
-    const ctx = loadContext({ NODE_ENV: "production", ATTESTATION_PRIVATE_KEY: key, ATTESTATION_PUBLIC_URL: "https://a.test" });
+  it("throws in production when ATTESTATION_PUBKEY is unset (issuer anchor must be declared)", () => {
+    expect(() => loadContext({ ...prodOk, ATTESTATION_PUBKEY: undefined })).toThrow(/ATTESTATION_PUBKEY/);
+  });
+
+  it("loads in production when both ATTESTATION_PUBLIC_URL and ATTESTATION_PUBKEY are set", () => {
+    const ctx = loadContext(prodOk);
     expect(ctx.publicBase).toBe("https://a.test");
   });
 
-  it("loads in dev without a public URL (Host-only fallback)", () => {
+  it("loads in dev without a public URL or declared pubkey (Host-only fallback)", () => {
     const ctx = loadContext({ NODE_ENV: "development", ATTESTATION_PRIVATE_KEY: key });
     expect(ctx.publicBase).toBeUndefined();
   });

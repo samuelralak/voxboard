@@ -47,6 +47,19 @@ export interface PublishResult {
   failed: number;
 }
 
+/**
+ * Count relays that GENUINELY accepted a publish. nostr-tools' pool.publish RESOLVES (does not reject) on a
+ * connection failure, with a synthesized "connection failure: ..." string, so a settled-fulfilled entry is
+ * only a real accept when its value is not that sentinel. Without this, an all-unreachable publish would
+ * report full success and defeat the fail-closed publishOrThrow guard. A real relay OK resolves to its
+ * (possibly empty) reason string, which never starts with that prefix.
+ */
+export function acceptedCount(results: readonly PromiseSettledResult<string>[]): number {
+  return results.filter(
+    (r) => r.status === "fulfilled" && !(typeof r.value === "string" && r.value.startsWith("connection failure")),
+  ).length;
+}
+
 export interface QueryResult {
   /** envelope-valid, signature-verified events matching the filter */
   events: NostrEvent[];
@@ -80,17 +93,21 @@ export function createRelayClient(relays: string[]): RelayClient {
         // verify the Schnorr sig at the boundary (mirrors the indexer); drop anything unverifiable
         if (event && verifyEvent(event as NostrEvent & { sig: string })) events.push(event);
       }
-      // a relay with an open connection after the query was reachable; 0 reachable = a blind read.
+      // a relay with an open connection after the query was reachable; 0 reachable = a blind read. Count
+      // over the status map VALUES (the pool is fresh per call, so every entry is a relay we dialed) rather
+      // than re-keying by the raw input strings, which SimplePool normalizes (trailing slash, :443, case).
       const status = pool.listConnectionStatus();
       let responded = 0;
-      for (const relay of relays) if (status.get(relay)) responded += 1;
+      for (const connected of status.values()) if (connected) responded += 1;
       return { events, responded };
     },
     async publish(event): Promise<PublishResult> {
       const settled = await Promise.allSettled(
         pool.publish(relays, event as Parameters<SimplePool["publish"]>[1]),
       );
-      const ok = settled.filter((r) => r.status === "fulfilled").length;
+      // acceptedCount excludes nostr-tools' synthesized "connection failure: ..." resolves, so the
+      // fail-closed publishOrThrow guard fires when every relay is unreachable (not a false success).
+      const ok = acceptedCount(settled);
       return { ok, failed: settled.length - ok };
     },
     close(): void {

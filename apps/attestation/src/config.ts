@@ -4,21 +4,19 @@
  * (signer.ts, relays.ts); this holds the operator allow-list and the public-URL base used for NIP-98.
  */
 
-import { attestationNamespace } from "@voxboard/protocol";
-
-const HEX64 = /^[0-9a-f]{64}$/;
+import { attestationNamespace, isHex64 } from "@voxboard/protocol";
 
 /**
  * Operator pubkeys (hex) allowed to attest ANY board and to revoke. Comma-separated ATTESTATION_OPERATORS.
  * The automated owner-self-attest path does NOT need this (owners attest their own boards); operators are
- * for backfill/revoke and override.
+ * for revoke and override.
  */
 export function operatorPubkeys(env: NodeJS.ProcessEnv = process.env): Set<string> {
   return new Set(
     (env.ATTESTATION_OPERATORS ?? "")
       .split(",")
       .map((s) => s.trim().toLowerCase())
-      .filter((s) => HEX64.test(s)),
+      .filter(isHex64),
   );
 }
 

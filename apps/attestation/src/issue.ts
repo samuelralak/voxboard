@@ -26,14 +26,17 @@ import {
   buildAttestationSet,
   buildDelistLabel,
   collapseAttestationLabels,
+  communityCoordinate,
   now,
-  verifyAttestationSet,
+  parseCommunityCoordinate,
+  selectLatestAttestationSet,
   type AttestationLabel,
   type NostrEvent,
 } from "@voxboard/protocol";
-import type { Signer } from "./signer.js";
-import type { RelayClient } from "./relays.js";
-import { RelayUnavailableError } from "./errors.js";
+import type { Signer } from "./signer";
+import type { RelayClient } from "./relays";
+import { fetchBoard } from "./attest";
+import { RelayUnavailableError } from "./errors";
 
 /**
  * CONCURRENCY: issueAttestation/revokeAttestation are read-modify-write on the addressable set, which is
@@ -91,13 +94,8 @@ async function readState(deps: IssueDeps): Promise<CurrentState> {
     ),
   ]);
 
-  // latest set: newest created_at, tiebreak lowest id (NIP-01) for a deterministic choice on a tie.
-  const latest = setRes.events
-    .map((e) => verifyAttestationSet(e, deps.signer.issuerPubkey, deps.namespace))
-    .filter((s): s is NonNullable<typeof s> => s !== null)
-    .sort((a, b) =>
-      b.createdAt !== a.createdAt ? b.createdAt - a.createdAt : a.raw.id < b.raw.id ? -1 : a.raw.id > b.raw.id ? 1 : 0,
-    )[0];
+  // the latest verified issuer set (shared selection: newest created_at, NIP-01 lowest-id tiebreak)
+  const latest = selectLatestAttestationSet(setRes.events, deps.signer.issuerPubkey, deps.namespace);
 
   return {
     setCoords: latest?.coordinates ?? [],
@@ -184,7 +182,10 @@ export async function revokeAttestation(
   input: { coordinate: string; eventId?: string },
   deps: IssueDeps,
 ): Promise<IssueResult> {
-  const { coordinate } = input;
+  // canonicalize (lowercase pubkey) so the coordinate matches the canonical set/label keys; otherwise an
+  // operator-supplied mixed-case coordinate wouldn't match and the revoke would silently no-op.
+  const ref = parseCommunityCoordinate(input.coordinate);
+  const coordinate = ref ? communityCoordinate(ref) : input.coordinate;
   const state = await readState(deps);
 
   // FAIL CLOSED on a blind read: a revoke recomputes the set too, and a blind read could republish a
@@ -193,11 +194,27 @@ export async function revokeAttestation(
     throw new RelayUnavailableError("blind relay read (no reachable relays); refusing to recompute the allowlist");
   }
 
-  // delist label: pin the event id we were given, else the one the current label pinned, so the off-state
-  // targets a concrete board version. Monotonic created_at so the delist strictly supersedes the current
-  // attested label (never loses a same-second tie by event-id hash).
+  // Recompute the set WITHOUT the coordinate. Union gives the floor (preserve other boards); the explicit
+  // filter guarantees removal regardless of read races. Publish the SET FIRST (the authoritative discover
+  // gate), so a partial failure still removes the board from discover even if the badge label lands late.
+  // Only republish when membership actually changed (no needless supersede when the coord wasn't listed).
+  const coordinates = unique([...state.setCoords, ...attestedCoords(state.labels)]).filter(
+    (c) => c !== coordinate,
+  );
+  let set: NostrEvent | null = null;
+  if (!sameMembers(coordinates, state.setCoords)) {
+    const setCreatedAt = Math.max(now(), state.setCreatedAt + 1);
+    set = deps.signer.sign(buildAttestationSet({ coordinates, namespace: deps.namespace, createdAt: setCreatedAt }));
+    await publishOrThrow(deps, set, "allowlist set");
+  }
+
+  // delist label (the badge off-state): pin the event id we were given, else the one the current label
+  // pinned, else the board's CURRENT id (so the badge still revokes even when the label read was partial;
+  // a delist revokes regardless of which id it pins, but the `e` tag needs a concrete value). Monotonic
+  // created_at so the delist strictly supersedes the current attested label (never loses a same-second tie).
   const current = state.labels.get(coordinate);
-  const eventId = input.eventId ?? current?.eventId;
+  const eventId =
+    input.eventId ?? current?.eventId ?? (await fetchBoard(deps.client, coordinate, deps.maxWait))?.raw.id;
   let label: NostrEvent | null = null;
   if (eventId) {
     const labelCreatedAt = Math.max(now(), (current?.createdAt ?? 0) + 1);
@@ -206,15 +223,6 @@ export async function revokeAttestation(
     );
     await publishOrThrow(deps, label, "delist label");
   }
-
-  // recompute the set WITHOUT the coordinate. Union gives the floor (preserve other boards); the explicit
-  // filter guarantees removal regardless of read races. Monotonic created_at so it supersedes the old set.
-  const coordinates = unique([...state.setCoords, ...attestedCoords(state.labels)]).filter(
-    (c) => c !== coordinate,
-  );
-  const setCreatedAt = Math.max(now(), state.setCreatedAt + 1);
-  const set = deps.signer.sign(buildAttestationSet({ coordinates, namespace: deps.namespace, createdAt: setCreatedAt }));
-  await publishOrThrow(deps, set, "allowlist set");
 
   return { label, set, idempotent: false, coordinates };
 }

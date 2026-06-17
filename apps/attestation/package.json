@@ -5,6 +5,9 @@
   "type": "module",
   "description": "Voxboard attestation signer: the platform issuer key signs the strict-allowlist set (carrier 1) + per-board labels (carrier 2). The first slice of the future Node/Fly indexer. See docs/ATTESTATION.md.",
   "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "cli": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -12,6 +15,7 @@
     "@noble/hashes": "^1.8.0",
     "@voxboard/protocol": "*",
     "nostr-tools": "2.23.5",
+    "tsx": "^4.19.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

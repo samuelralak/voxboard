@@ -15,7 +15,7 @@
 import { finalizeEvent, getPublicKey, verifyEvent } from "nostr-tools/pure";
 import * as nip19 from "nostr-tools/nip19";
 import { hexToBytes } from "@noble/hashes/utils";
-import type { EventTemplate, NostrEvent } from "@voxboard/protocol";
+import { isHex64, type EventTemplate, type NostrEvent } from "@voxboard/protocol";
 
 export interface Signer {
   /** the issuer public key (hex). Safe to expose — it is published via NIP-05. */
@@ -31,12 +31,10 @@ export interface SignerEnv {
   ATTESTATION_PUBKEY?: string;
 }
 
-const HEX64 = /^[0-9a-f]{64}$/;
-
 /** Decode a 64-hex or `nsec1...` private key into raw bytes. Throws on anything malformed (fail closed). */
 function decodeSecret(raw: string): Uint8Array {
   const value = raw.trim();
-  if (HEX64.test(value.toLowerCase())) return hexToBytes(value.toLowerCase());
+  if (isHex64(value.toLowerCase())) return hexToBytes(value.toLowerCase());
   if (value.startsWith("nsec1")) {
     const decoded = nip19.decode(value);
     if (decoded.type !== "nsec") throw new Error("ATTESTATION_PRIVATE_KEY: bech32 is not an nsec");

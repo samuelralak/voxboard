@@ -13,14 +13,14 @@
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { fileURLToPath } from "node:url";
-import { now, parseCommunityCoordinate, sha256Hex } from "@voxboard/protocol";
-import { createSigner, type Signer } from "./signer.js";
-import { configuredRelays, withRelayClient, type RelayClient } from "./relays.js";
-import { attestBoard } from "./attest.js";
-import { issueAttestation, revokeAttestation } from "./issue.js";
-import { verifyHttpAuth } from "./http-auth.js";
-import { RelayUnavailableError } from "./errors.js";
-import { corsOrigin, namespace, operatorPubkeys, port, publicBaseUrl } from "./config.js";
+import { isHex64, now, parseCommunityCoordinate, sha256Hex } from "@voxboard/protocol";
+import { createSigner, type Signer } from "./signer";
+import { configuredRelays, withRelayClient, type RelayClient } from "./relays";
+import { attestBoard } from "./attest";
+import { issueAttestation, revokeAttestation } from "./issue";
+import { verifyHttpAuth } from "./http-auth";
+import { RelayUnavailableError } from "./errors";
+import { corsOrigin, namespace, operatorPubkeys, port, publicBaseUrl } from "./config";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
@@ -147,7 +147,7 @@ function parseRevokeBody(body: string): { coordinate: string; eventId?: string }
   }
   const obj = parsed as { coordinate?: unknown; eventId?: unknown };
   if (typeof obj?.coordinate !== "string" || parseCommunityCoordinate(obj.coordinate) === null) return null;
-  const eventId = typeof obj.eventId === "string" && /^[0-9a-f]{64}$/.test(obj.eventId) ? obj.eventId : undefined;
+  const eventId = typeof obj.eventId === "string" && isHex64(obj.eventId) ? obj.eventId : undefined;
   return eventId ? { coordinate: obj.coordinate, eventId } : { coordinate: obj.coordinate };
 }
 
@@ -256,6 +256,13 @@ export function loadContext(env: NodeJS.ProcessEnv = process.env): ServiceContex
   if (!publicBase && env.NODE_ENV === "production") {
     throw new Error(
       "ATTESTATION_PUBLIC_URL must be set in production (the NIP-98 url pin must use a trusted origin)",
+    );
+  }
+  // Require the issuer pubkey to be DECLARED in production: createSigner asserts its key derives it (catching
+  // a wrong-key misconfig), and the web app must set the SAME value, so this is the shared issuer anchor.
+  if (!env.ATTESTATION_PUBKEY && env.NODE_ENV === "production") {
+    throw new Error(
+      "ATTESTATION_PUBKEY must be set in production (declares the issuer pubkey; the signer asserts its key derives it, and the web app must use the same value)",
     );
   }
   return {

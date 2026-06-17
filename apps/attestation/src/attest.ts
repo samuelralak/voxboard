@@ -15,14 +15,13 @@
 import {
   KIND,
   communityCoordinate,
+  isHex64,
   parseBoard,
   parseCommunityCoordinate,
   type Board,
   type NostrEvent,
 } from "@voxboard/protocol";
-import type { RelayClient } from "./relays.js";
-
-const HEX64 = /^[0-9a-f]{64}$/;
+import type { RelayClient } from "./relays";
 
 export interface AttestRequest {
   /** the board coordinate `34550:<owner>:<slug>` to attest */
@@ -84,7 +83,7 @@ export async function attestBoard(req: AttestRequest, deps: AttestDeps): Promise
   // must never accidentally satisfy the comparison or reach isOperator. (NIP-98 proves it upstream; this is
   // defense in depth so attestBoard is safe even if a future caller passes an unauthenticated string.)
   const requester = req.requester.toLowerCase();
-  if (!HEX64.test(requester)) return { ok: false, reason: "invalid requester pubkey" };
+  if (!isHex64(requester)) return { ok: false, reason: "invalid requester pubkey" };
 
   const board = await fetchBoard(deps.client, req.coordinate, deps.maxWait);
   if (!board) return { ok: false, reason: "board not found or fails conformance (parseBoard)" };
