@@ -23,6 +23,10 @@ const HEX64 = /^[0-9a-f]{64}$/;
 const NAME_RE = /^[a-z0-9-_.]+$/;
 const DOMAIN_RE = /^[a-z0-9.-]+$/;
 const TTL = 10 * 60 * 1000;
+// A failed / again-unreachable lookup is cached only briefly, so a transient hiccup (server blip, an
+// offline moment) does not zero a recipient's zap total for the full ten minutes: the next resolve
+// attempt retries instead of being handed a stale null.
+const NEG_TTL = 20 * 1000;
 
 const cache = new Map<string, { meta: LnurlPayMeta | null; at: number }>();
 const inflight = new Map<string, Promise<LnurlPayMeta | null>>();
@@ -82,7 +86,7 @@ async function doResolve(lud16: string): Promise<LnurlPayMeta | null> {
 
 export async function resolveLnurlPay(lud16: string): Promise<LnurlPayMeta | null> {
   const cached = cache.get(lud16);
-  if (cached && Date.now() - cached.at < TTL) return cached.meta;
+  if (cached && Date.now() - cached.at < (cached.meta ? TTL : NEG_TTL)) return cached.meta;
   const existing = inflight.get(lud16);
   if (existing) return existing;
 

@@ -22,7 +22,14 @@ export function useZaps(ids: string[], authorByTarget: Map<string, string>): Map
     [ids.join(",")],
   );
 
-  const events = useMemo(() => toNostrEvents(sub.events), [sub.events]);
+  const rawEvents = useMemo(() => toNostrEvents(sub.events), [sub.events]);
+  // NDK can momentarily return an empty event buffer on a remount/re-subscribe; retain the last non-empty
+  // set so a validated zap total does not blink to 0 (and back) while the subscription re-settles. A real
+  // retraction is handled below via the deletions filter, not by the buffer going empty, so this never
+  // masks a genuine zero.
+  const lastEvents = useRef(rawEvents);
+  if (rawEvents.length > 0) lastEvents.current = rawEvents;
+  const events = rawEvents.length > 0 ? rawEvents : lastEvents.current;
   // The recipient/server can NIP-09 a receipt; honor that.
   const liveHidden = useDeletedIds(events);
   // useDeletedIds has no SSR seed here, so NDK can momentarily return an empty deleted set on a
