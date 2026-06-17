@@ -11,8 +11,8 @@ Voxboard is a public feedback board (in the spirit of Canny or Featurebase), bui
 protocol. Boards are NIP-72 communities, ideas and replies are NIP-22 comments, votes are NIP-25
 reactions, and tips are NIP-57 zaps. There is no custodial database of record: clients sign and publish
 to relays, and the app aggregates the result at read time. (NIP-72 is marked "unrecommended" in favor of
-the relay-controlled NIP-29; Voxboard stays on it deliberately, since a relay-governed group would
-undercut that non-custodial, portable model. See [docs/PROTOCOL.md](./docs/PROTOCOL.md).)
+NIP-29, which puts the relay in charge of the group. Voxboard stays on NIP-72 so the owner stays in charge
+and boards stay portable. See [docs/PROTOCOL.md](./docs/PROTOCOL.md).)
 
 ## Monorepo
 

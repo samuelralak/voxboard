@@ -56,13 +56,11 @@ Addressable coordinate format: `kind:pubkey:d`. A board's stable id is
 Addressable, authored by the board owner. The owner pubkey is the root of trust; moderators are the
 `p` tags with a `moderator` marker.
 
-> **On NIP-72's status.** NIP-72 is marked "unrecommended" in the NIPs repo, which points to NIP-29
-> (relay-based groups). Voxboard stays on NIP-72 by choice. NIP-29 makes the relay the authority for
-> membership and moderation (relay-controlled groups); Voxboard is non-custodial and portable, so the
-> board is an owner-signed addressable event, the owner's key is the root of trust, and it reads from any
-> relay. Adopting NIP-29 would make the board relay-bound and relay-governed, the opposite of that goal.
-> NIP-72's mechanisms remain fully specified and functional, and the primitives Voxboard leans on most
-> (kind 1111 comments, kind 7 reactions, kind 1985 labels, NIP-57 zaps) are general Nostr and unaffected.
+> **On NIP-72's status.** NIP-72 is marked "unrecommended" in favor of NIP-29. Voxboard stays on it on
+> purpose. NIP-29 puts the relay in charge of the group: the relay decides who joins and what gets posted.
+> NIP-72 puts the owner in charge: a board is an event the owner signs, and it reads from any relay.
+> Switching to NIP-29 would tie each board to one relay and break the non-custodial model. NIP-72 still
+> works, and the rest (comments, votes, labels, zaps) is plain Nostr either way.
 
 ```json
 {
