@@ -94,6 +94,7 @@ export default function IdeaPreview() {
         replyCount={replyCount}
         status="planned"
         zapSats={880}
+        authorLud16="pckt@walletofsatoshi.com"
         onCopyLink={() => {}}
         canDelete
         onDelete={async () => {}}

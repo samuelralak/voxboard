@@ -130,7 +130,7 @@ export function IdeaView({ ideaId, initialIdea }: { ideaId: string; initialIdea:
   // Verify the author's NIP-05 (real round-trip) and record that the viewer opened this idea. Both hooks
   // run before the early returns to keep hook order stable.
   const nip05State = useNip05Verify(profile?.nip05, idea?.pubkey ?? "");
-  const zap = useZap(idea?.id ?? null, idea?.pubkey ?? null);
+  const zap = useZap(idea?.id ?? null, idea?.pubkey ?? null, profile?.lud16 ?? null);
   const wot = useWebOfTrust();
   const inNetwork = Boolean(idea) && wot.isTrusted(idea!.pubkey);
   const trusted = useMemo(() => trustedVotes(tally.byPubkey, wot.isTrusted), [tally.byPubkey, wot.isTrusted]);

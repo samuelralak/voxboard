@@ -222,8 +222,16 @@ export function ZapButton({
 
   return (
     <>
-      <Button variant="ghost" size="sm" onClick={() => requireLogin(() => openDialog(dialogId))}>
-        <HugeiconsIcon icon={FlashIcon} size={14} strokeWidth={2} className="text-zap" />
+      {/* The one value action on a feedback idea, so it leads: a quiet zap-tinted outline (the sanctioned
+          zap hue, same as the amount presets) rather than another grey ghost. Copy link + Delete stay
+          ghost, so the eye lands on Zap first. */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => requireLogin(() => openDialog(dialogId))}
+        className="border-zap/30 text-zap hover:border-zap/50 hover:bg-zap/10 hover:text-zap"
+      >
+        <HugeiconsIcon icon={FlashIcon} size={14} strokeWidth={2} />
         Zap
       </Button>
       <ClientOnly>

@@ -15,7 +15,12 @@ const EMPTY_TOTAL: ZapTotal = { sats: 0, msat: BigInt(0), zapCount: 0, senders: 
  * actually has receipts, then runs the forgery-resistant zapTotalsByTarget. A receipt whose recipient
  * anchor cannot be resolved contributes 0 (fail-closed) — only validated, anchored zaps are summed.
  */
-export function useZaps(ids: string[], authorByTarget: Map<string, string>): Map<string, ZapTotal> {
+export function useZaps(
+  ids: string[],
+  authorByTarget: Map<string, string>,
+  /** recipient pubkey -> lud16 the caller already resolved (lets the anchor skip a racy profile fetch) */
+  lud16ByAuthor?: Map<string, string>,
+): Map<string, ZapTotal> {
   const sub = useSubscribe(
     ids.length > 0 ? [ndkFilter({ kinds: [KIND.ZapReceipt], "#e": ids })] : false,
     {},
@@ -51,7 +56,7 @@ export function useZaps(ids: string[], authorByTarget: Map<string, string>): Map
     return [...set];
   }, [live, authorByTarget]);
 
-  const anchors = useLnurlAnchors(recipients);
+  const anchors = useLnurlAnchors(recipients, lud16ByAuthor);
 
   return useMemo(
     () =>
@@ -80,10 +85,15 @@ export function useZaps(ids: string[], authorByTarget: Map<string, string>): Map
   );
 }
 
-/** Single-target convenience for the detail page. */
-export function useZap(id: string | null, author: string | null): ZapTotal {
+/** Single-target convenience for the detail page. Pass the author's `lud16` (the detail page already has
+ *  it from the profile) so the zap anchor resolves reactively instead of racing a one-shot profile fetch. */
+export function useZap(id: string | null, author: string | null, lud16?: string | null): ZapTotal {
   const ids = useMemo(() => (id ? [id] : []), [id]);
   const map = useMemo(() => (id && author ? new Map([[id, author]]) : new Map<string, string>()), [id, author]);
-  const totals = useZaps(ids, map);
+  const lud16Map = useMemo(
+    () => (author && lud16 ? new Map([[author, lud16]]) : undefined),
+    [author, lud16],
+  );
+  const totals = useZaps(ids, map, lud16Map);
   return id ? totals.get(id) ?? EMPTY_TOTAL : EMPTY_TOTAL;
 }
