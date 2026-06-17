@@ -32,6 +32,8 @@ export const KIND = {
   Community: 34550,
   /** NIP-42 relay auth (ephemeral, never stored) */
   ClientAuth: 22242,
+  /** NIP-98 HTTP auth (ephemeral; signs a request to a privileged endpoint, e.g. the attestation trigger) */
+  HttpAuth: 27235,
   /** NIP-46 remote signer transport (ephemeral) */
   NostrConnect: 24133,
   /** NIP-89 handler information */
@@ -50,6 +52,36 @@ export const LABEL_NS = {
   lock: "app.nostr-userinput.lock",
   moderation: "app.nostr-userinput.moderation",
 } as const;
+
+/**
+ * Platform attestation vocabulary: the strict-allowlist noise filter that decides which boards appear in
+ * production discover. ONE platform issuer key (never a user key) signs two carriers:
+ *   - an addressable NIP-51 set (kind 30000, d="attested") = the discover allowlist (carrier 1), and
+ *   - per-board NIP-32 labels (kind 1985) pinning the board coordinate + event id (carrier 2, the badge).
+ * Builders/parsers live in attestation.ts; the full design is in docs/ATTESTATION.md.
+ */
+export const ATTESTATION = {
+  /** reverse-DNS base namespace; env-scoped on read via attestationNamespace() so staging can't validate in prod */
+  ns: "space.voxboard.attestation",
+  /** label value for an attested board; the off-state (per-board revocation) is "delisted" */
+  attested: "attested",
+  delisted: "delisted",
+  /** the addressable allowlist set's `d` identifier (kind 30000) */
+  setIdentifier: "attested",
+  /** the allowlist set kind: a NIP-51 addressable set, disambiguated by (author=issuer, d="attested") */
+  setKind: KIND.FollowSet,
+} as const;
+
+/**
+ * Env-scoped attestation namespace. Production uses the bare base; any other env appends `.<env>`, so a
+ * staging issuer key's labels/sets can NEVER validate in production — the full L/l namespace tag is pinned
+ * on read (see parseAttestationSet/parseAttestationLabel), the exact leak Switchboard's full-tag match
+ * also prevents. Callers pass the env they run in (e.g. process.env.NODE_ENV) so the value is explicit.
+ */
+export function attestationNamespace(env?: string): string {
+  const e = (env ?? "").trim().toLowerCase();
+  return !e || e === "production" || e === "prod" ? ATTESTATION.ns : `${ATTESTATION.ns}.${e}`;
+}
 
 /** The 9-state status taxonomy, ported verbatim from userinput.app. Order is meaningful. */
 export const STATUS = [

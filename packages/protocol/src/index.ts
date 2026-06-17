@@ -25,3 +25,5 @@ export * from "./moderation";
 export * from "./approval";
 export * from "./profile";
 export * from "./delete";
+export * from "./attestation";
+export * from "./http-auth";
