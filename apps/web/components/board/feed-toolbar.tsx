@@ -1,8 +1,14 @@
+"use client";
+
+import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowUp01Icon, Clock01Icon, Fire02Icon } from "@hugeicons/core-free-icons";
 import { cn } from "@/lib/utils";
 
 export type SortKey = "trending" | "top" | "new";
+
+/** How many category filters show before collapsing behind a "+N more" toggle. */
+const COLLAPSED_CATEGORIES = 5;
 
 const SORTS = [
   { key: "trending" as const, label: "Trending", icon: Fire02Icon },
@@ -48,21 +54,55 @@ export function FeedToolbar({
         })}
       </div>
 
-      {categories.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <CategoryButton active={activeCategory === null} onClick={() => onCategory(null)}>
-            All
-          </CategoryButton>
-          {categories.map((category) => (
-            <CategoryButton
-              key={category}
-              active={activeCategory === category}
-              onClick={() => onCategory(category)}
-            >
-              {category}
-            </CategoryButton>
-          ))}
-        </div>
+      {categories.length > 0 ? <CategoryFilter {...{ categories, activeCategory, onCategory }} /> : null}
+    </div>
+  );
+}
+
+/** Category filter chips with a "+N more" overflow so a long tag list never sprawls (esp. on mobile). */
+function CategoryFilter({
+  categories,
+  activeCategory,
+  onCategory,
+}: {
+  categories: string[];
+  activeCategory: string | null;
+  onCategory: (category: string | null) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const overflowing = categories.length > COLLAPSED_CATEGORIES;
+  const collapsed = categories.slice(0, COLLAPSED_CATEGORIES);
+  // keep the active filter visible even while collapsed, so the current selection never hides behind "more"
+  const shown =
+    expanded || !overflowing
+      ? categories
+      : activeCategory && !collapsed.includes(activeCategory)
+        ? [...collapsed, activeCategory]
+        : collapsed;
+  const hiddenCount = categories.length - shown.length;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <CategoryButton active={activeCategory === null} onClick={() => onCategory(null)}>
+        All
+      </CategoryButton>
+      {shown.map((category) => (
+        <CategoryButton key={category} active={activeCategory === category} onClick={() => onCategory(category)}>
+          {category}
+        </CategoryButton>
+      ))}
+      {overflowing ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className={cn(
+            "inline-flex h-8 items-center rounded-md px-2 text-xs font-medium text-muted transition-colors",
+            "hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+          )}
+        >
+          {expanded ? "Show less" : `+${hiddenCount} more`}
+        </button>
       ) : null}
     </div>
   );

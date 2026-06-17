@@ -49,7 +49,7 @@ export default async function BoardPage({ params }: PageProps) {
   );
 
   return (
-    <Shell>
+    <Shell width="wide">
       <BoardView
         coordinate={resolved.coordinate}
         initialBoard={board}
