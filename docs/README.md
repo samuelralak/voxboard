@@ -16,7 +16,7 @@ Tailwind v4, and NDK. These docs describe the protocol model, the stack, and the
 
 ## Core decisions
 
-- **Protocol:** Nostr. Boards are NIP-72 moderated communities (kind 34550); ideas and replies are NIP-22 comments (kind 1111).
+- **Protocol:** Nostr. Boards are NIP-72 moderated communities (kind 34550); ideas and replies are NIP-22 comments (kind 1111). NIP-72 is marked "unrecommended" (in favor of the relay-controlled NIP-29); Voxboard stays on it deliberately for a non-custodial, owner-signed, portable model (see [PROTOCOL.md](./PROTOCOL.md)).
 - **Identity / signing:** NIP-07 extension, NIP-46 remote signer, and NIP-05 handles, with nsec paste as a power-user fallback. Keys stay client-side.
 - **Nostr-native primitives:** profiles (kind 0), votes (NIP-25 reactions), follows (NIP-02), relay routing (NIP-65 outbox), zaps (NIP-57).
 - **Framework:** Next.js 16 App Router, a thin server shell for SEO/OG/NIP-05 and a fat client app for the relay and signer logic. TypeScript, strict.
