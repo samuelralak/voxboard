@@ -10,6 +10,7 @@ import {
   MODERATION_MODE,
   boardNaddr,
   buildBoard,
+  communityCoordinate,
   type Board,
   type BoardModerator,
   type BuildBoardInput,
@@ -17,6 +18,7 @@ import {
 } from "@voxboard/protocol";
 import { Button } from "@/components/ui/button";
 import { usePublish } from "@/hooks/use-publish";
+import { useAttest } from "@/hooks/use-attest";
 import { useAuth } from "@/hooks/use-auth";
 import { useDialogOpenFocus } from "@/hooks/use-dialog-open-focus";
 import { closeDialog } from "@/lib/dialog";
@@ -88,6 +90,7 @@ export function BoardDialog({ dialogId, board }: { dialogId: string; board?: Boa
   useDialogOpenFocus(dialogRef);
   const { pubkey } = useAuth();
   const publish = usePublish();
+  const attest = useAttest();
   const router = useRouter();
   const isEdit = Boolean(board);
 
@@ -165,6 +168,12 @@ export function BoardDialog({ dialogId, board }: { dialogId: string; board?: Boa
       const text = description.trim();
       if (text) input.description = text;
       await publish(buildBoard(input));
+      // Automatically request platform attestation so the board appears in production discover. Fire-and-
+      // forget: it must never block or fail board creation. On edit it re-fires so the anti-swap event-id
+      // pin tracks the new board version. (No-op when the attestation service isn't configured.)
+      void attest(communityCoordinate({ pubkey, slug })).catch((e) =>
+        console.warn("attestation request failed", e),
+      );
       // compute the naddr before closing (close() resets the create form state)
       const naddr = boardNaddr({ pubkey, slug }, [...DEFAULT_RELAYS]);
       dialogRef.current?.close();
