@@ -82,8 +82,23 @@ leak Switchboard's `policy.rb` full-tag match prevents. Callers pass the env the
 - **Rotation:** Nostr has no native key rotation (the pubkey *is* the identity). NIP-05 collapses
   rotation into a one-file edit on the TLS-protected domain Voxboard already controls: update
   `nostr.json` → redeploy → re-sign the set + labels under the new key (a backfill, since reads are
-  issuer-scoped). Keep an `ATTESTATION_PUBKEY` override env for self-hosters. **Do not use NIP-26**
-  delegated signing (deprecated 2025-05-21).
+  issuer-scoped). **Do not use NIP-26** delegated signing (deprecated 2025-05-21).
+
+## Environment contract
+
+The signer service and the web app are configured independently, so these cross-app equalities MUST hold
+(production fails closed when the required vars are unset):
+
+| Var | Read by | Meaning |
+| --- | --- | --- |
+| `ATTESTATION_PRIVATE_KEY` | signer | the issuer signing key (hex/nsec). Never on the web app. |
+| `ATTESTATION_PUBKEY` | signer **and** web | the issuer pubkey. On the signer it is a fail-closed **self-check** (`createSigner` asserts the private key derives it); on the web app it is the value the discover filter + badge pin. **MUST equal `getPublicKey(ATTESTATION_PRIVATE_KEY)`.** Required in production on both. |
+| `ATTESTATION_ENV` (fallback `NODE_ENV`) | signer **and** web | env-scoped namespace selector. **MUST match** across both, or the web app pins a different namespace than the signer writes and discover silently empties. |
+| `ATTESTATION_PUBLIC_URL` | signer | the trusted origin for the NIP-98 `u` pin. Required in production. |
+| `ATTESTATION_RELAYS` | signer | where the issuer publishes (must overlap the web app's `DEFAULT_RELAYS`). |
+| `ATTESTATION_OPERATORS` | signer | comma-separated operator pubkeys (attest-any / revoke). |
+| `ATTESTATION_OPERATOR_KEY`, `ATTESTATION_URL` | operator CLI | the operator's own key + the service base URL. |
+| `NEXT_PUBLIC_ATTESTATION_URL` | web client | the service base URL the create/edit hook posts to (empty = attestation off). |
 
 ## Where the signer lives
 
@@ -199,9 +214,19 @@ Three layered, in-spec mechanisms; `issue.ts` does all of them in one revoke op:
   every request is crash-wrapped (an unhandled throw can't down the key-holding process), unexpected errors
   return a generic 500 and relay problems a typed 503, with `process` guards + tight timeouts. Operators via
   `ATTESTATION_OPERATORS`.
-- **Phase 5 — discover enforcement + badge.** The `fetchDiscoverBoards` filter (with the locked fail
-  mode) and the board-page badge.
-- **Phase 6 — backfill + revoke tooling.** One-time idempotent backfill so prod discover isn't empty on
+- **Phase 5 — discover enforcement + badge.** ✅ `decideAllowlist` (the pure, tested fail-mode policy),
+  `fetchAllowlist` (re-verify the issuer-signed set SSR-side: envelope + Schnorr + issuer/namespace pin,
+  with a reachability signal + last-known-good cache), the strict `fetchDiscoverBoards` filter (fetch by
+  attested owners, keep exactly the attested coordinates), and the masthead `AttestedBadge` (computed in
+  the snapshot from a DEDICATED issuer-pinned label query, re-checked client-side against the displayed
+  board version so a client-side edit auto-revokes it). Adversarial review converged: the core gate is
+  proven sound (no forged/foreign set, no non-attested board passes); 4 fixed bugs were a stale-badge-on-
+  edit, an issuer label crowd-out, a mis-keyed responder count, and a set-selection tiebreak.
+- **Phase 6 — operator CLI.** ✅ A thin attest/revoke CLI (`apps/attestation/src/cli.ts`, run via tsx) that
+  signs a NIP-98 token with the operator key and posts to the privileged endpoints, for moderation
+  (de-listing spam) and one-command bootstrapping during rollout. Backfill was dropped (no records to
+  migrate; new boards auto-attest, existing ones attest on re-save). Original plan below for reference.
+- **Phase 6 (superseded) — backfill + revoke tooling.** One-time idempotent backfill so prod discover isn't empty on
   launch; a revoke command (republish set minus coord + delist label).
 - **Phase 7 — deploy.** `fly secrets set ATTESTATION_PRIVATE_KEY=…`; the slice runs as the first piece
   of the Node/Fly indexer.
