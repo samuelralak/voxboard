@@ -228,8 +228,50 @@ Three layered, in-spec mechanisms; `issue.ts` does all of them in one revoke op:
   migrate; new boards auto-attest, existing ones attest on re-save). Original plan below for reference.
 - **Phase 6 (superseded) — backfill + revoke tooling.** One-time idempotent backfill so prod discover isn't empty on
   launch; a revoke command (republish set minus coord + delist label).
-- **Phase 7 — deploy.** `fly secrets set ATTESTATION_PRIVATE_KEY=…`; the slice runs as the first piece
-  of the Node/Fly indexer.
+- **Phase 7 — deploy.** ✅ Artifacts ready: `apps/attestation/Dockerfile` (esbuild-bundled single-file
+  runtime, ~280KB, no node_modules), `apps/attestation/fly.toml` (its own Fly app, scale-to-zero), the
+  `main.ts` entrypoint + `npm run bundle`, and the `NEXT_PUBLIC_ATTESTATION_URL` build arg wired into the
+  web Dockerfile/fly.toml. The runbook below is operator-run (key custody + Fly auth are yours).
+
+## Deploy runbook (Phase 7)
+
+Run from the repo ROOT. The actual `fly` commands + key custody are operator-run.
+
+1. **Generate the platform issuer keypair** (keep the secret; you set it as a Fly secret, never commit it):
+   ```sh
+   nak key generate                 # prints a hex secret; nak key public <hex> for the pubkey
+   # or: node -e "const {generateSecretKey,getPublicKey}=require('nostr-tools/pure');const {bytesToHex}=require('@noble/hashes/utils');const sk=generateSecretKey();console.log('SECRET',bytesToHex(sk));console.log('PUBKEY',getPublicKey(sk))"
+   ```
+2. **Create + configure the signer app** (`voxboard-attestation`):
+   ```sh
+   fly apps create voxboard-attestation
+   fly secrets set -a voxboard-attestation \
+     ATTESTATION_PRIVATE_KEY=<hex-or-nsec> \
+     ATTESTATION_PUBKEY=<issuer-pubkey-hex> \
+     ATTESTATION_OPERATORS=<your-operator-pubkey-hex>
+   fly deploy --config apps/attestation/fly.toml --dockerfile apps/attestation/Dockerfile
+   curl https://voxboard-attestation.fly.dev/      # health: { issuer, namespace }
+   ```
+   (If you use a custom domain, set `ATTESTATION_PUBLIC_URL` in `apps/attestation/fly.toml` to match it.)
+3. **Enable the auto-attest hook on the web app** (build-time inline; does NOT yet gate discover):
+   ```sh
+   fly deploy -a voxboard --build-arg NEXT_PUBLIC_ATTESTATION_URL=https://voxboard-attestation.fly.dev
+   ```
+   New boards now auto-attest on create; existing boards attest when re-saved or via the CLI (step 4).
+4. **Attest the existing real boards** with the operator CLI, so discover isn't empty when the gate flips:
+   ```sh
+   ATTESTATION_OPERATOR_KEY=<your-nsec> ATTESTATION_URL=https://voxboard-attestation.fly.dev \
+     npm -w @voxboard/attestation run cli -- attest 34550:<owner>:<slug>
+   ```
+5. **Flip the discover gate on** (runtime secret; production discover now shows ONLY attested boards):
+   ```sh
+   fly secrets set -a voxboard ATTESTATION_PUBKEY=<issuer-pubkey-hex>
+   ```
+   Order matters: attest the backlog (steps 3–4) BEFORE this, or discover goes empty until boards attest.
+6. **Moderate** anytime with the CLI: `... run cli -- revoke 34550:<owner>:<slug>` (operator-only).
+
+Invariants (enforced/fail-closed): web `ATTESTATION_PUBKEY` == `getPublicKey(signer ATTESTATION_PRIVATE_KEY)`;
+web `NEXT_PUBLIC_ATTESTATION_URL` == signer `ATTESTATION_PUBLIC_URL`; web + signer `ATTESTATION_ENV` match.
 
 ## Risks
 
