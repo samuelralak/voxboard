@@ -29,10 +29,16 @@ function relaysOrDefault(relays: readonly string[]): string[] {
   return safe.length > 0 ? safe : [...DEFAULT_RELAYS];
 }
 
-/** Envelope-valid AND Schnorr-verified, so a relay can't smuggle a forged event past the SSR read boundary. */
+/**
+ * Envelope-valid AND Schnorr-verified, so a relay can't smuggle a forged event past the SSR read boundary.
+ * verifyEvent MUTATES its argument with a non-serializable `verified` Symbol (its verify cache), so we
+ * verify a shallow COPY and return the clean `valid` object — otherwise board.raw carries the Symbol and
+ * Next throws "Only plain objects can be passed to Client Components" when it crosses to a Client Component.
+ */
 function verified(event: unknown): NostrEvent | null {
   const valid = validateNostrEvent(event);
-  return valid && verifyEvent(valid as NostrEvent & { sig: string }) ? valid : null;
+  if (!valid) return null;
+  return verifyEvent({ ...valid } as NostrEvent & { sig: string }) ? valid : null;
 }
 
 /** Parse verified board events, keeping the latest per coordinate. */

@@ -105,4 +105,12 @@ describe("fetchBoardSnapshot — Attested badge (forgery-resistant)", () => {
     const snap = await fetchBoardSnapshotImpl(coordOf("a"), [], fakePool([boardA, staleLabel]));
     expect(snap.attested).toBe(false);
   });
+
+  it("returns a plain (symbol-free) board.raw so it can cross to a Client Component", async () => {
+    // verifyEvent mutates its argument with a non-serializable `verified` Symbol; the SSR read must not let
+    // it ride on board.raw, or Next throws "Only plain objects can be passed to Client Components".
+    const snap = await fetchBoardSnapshotImpl(coordOf("a"), [], fakePool([board("a", "Alpha")]));
+    expect(snap.board).not.toBeNull();
+    expect(Object.getOwnPropertySymbols(snap.board!.raw)).toHaveLength(0);
+  });
 });
