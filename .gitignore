@@ -38,3 +38,10 @@ npm-debug.log*
 .mcp.json
 .frontend-craft/
 /docs/research-raw/
+
+# internal planning / operational docs (kept private, outside the repo)
+/docs/PLAN.md
+/docs/PRODUCT.md
+/docs/DESIGN.md
+/docs/BACKLOG.md
+/voxboard-board.md

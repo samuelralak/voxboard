@@ -1,16 +1,12 @@
-# PROTOCOL.md — The Nostr event model
+# Protocol: the Nostr event model
 
-This is the contract for the build. Every product concept from [PRODUCT.md](./PRODUCT.md) maps to a
-Nostr kind + tag shape here, with full event JSON. Build against this document. When in doubt, this
-doc wins over memory and over any single library's defaults.
-
-All NIP claims here were verified against the canonical spec text during research
-(see [research-raw/sec-forumNips.txt](./research-raw/sec-forumNips.txt) and
-[sec-identityNips.txt](./research-raw/sec-identityNips.txt)).
+This document defines how Voxboard maps to Nostr. Every concept (board, idea, reply, vote, status, moderation) corresponds to a Nostr kind and tag shape, shown here with full event JSON.
 
 ## atproto -> Nostr mapping (the shape)
 
-| userinput.app (AT Protocol) | This app (Nostr) |
+Voxboard is a Nostr rebuild of an AT Protocol feedback board. The mapping:
+
+| AT Protocol (source model) | This app (Nostr) |
 |---|---|
 | DID (`did:plc:...`) | pubkey (hex) / `npub` |
 | Handle (`pckt.blog`) | NIP-05 identifier (`name@domain`) |
@@ -28,9 +24,9 @@ All NIP claims here were verified against the canonical spec text during researc
 | follow | kind **3** (NIP-02) |
 | delete own item | kind **5** (NIP-09) |
 | (new, native) zaps | kind **9734/9735** (NIP-57) |
-| constellation/slingshot indexers | relays + our vote-aggregation indexer |
+| constellation/slingshot indexers | relays + a vote-aggregation indexer |
 
-## Kind table (everything we read/write)
+## Kind table (everything read/written)
 
 | Kind | NIP | Class | Use |
 |---|---|---|---|
@@ -50,14 +46,14 @@ All NIP claims here were verified against the canonical spec text during researc
 | 22242 | 42 | ephemeral | relay AUTH (never stored) |
 | 24133 | 46 | ephemeral | NIP-46 remote-signer transport |
 
-Addressable coordinate format: `kind:pubkey:d`. The board's stable id is
+Addressable coordinate format: `kind:pubkey:d`. A board's stable id is
 `34550:<owner-pubkey>:<board-slug>`, shareable as an `naddr` (NIP-19/NIP-21).
 
 ---
 
 ## Board = NIP-72 community (kind 34550)
 
-Addressable. Authored by the board owner. The owner pubkey is the root of trust; moderators are the
+Addressable, authored by the board owner. The owner pubkey is the root of trust; moderators are the
 `p` tags with a `moderator` marker.
 
 ```json
@@ -70,9 +66,9 @@ Addressable. Authored by the board owner. The owner pubkey is the root of trust;
     ["description", "Tell us what to build next."],
     ["image", "https://media.example/icon.png", "512x512"],
     ["p", "<moderator-pubkey>", "wss://relay.example", "moderator"],
-    ["relay", "wss://relay.nostr-userinput.app", "requests"],
-    ["relay", "wss://relay.nostr-userinput.app", "approvals"],
-    ["relay", "wss://relay.nostr-userinput.app", "author"],
+    ["relay", "wss://relay.example", "requests"],
+    ["relay", "wss://relay.example", "approvals"],
+    ["relay", "wss://relay.example", "author"],
 
     // app-specific config (custom tags, ignored by other clients):
     ["t", "bug"], ["t", "feature"], ["t", "question"],
@@ -114,10 +110,10 @@ NIP-92 `imeta` (uploaded via NIP-96/Blossom, URL also inlined in content).
 
 - One subscription returns the whole board: `{"kinds":[1111],"#A":["34550:<owner>:<slug>"]}`
   (gives ideas + every reply; build the tree client-side from lowercase `e` tags).
-- **Editing:** kind 1111 is append-only. v1 supports edit via NIP-09 delete + repost (a new idea id).
-  If in-place edit that preserves votes/replies becomes a hard requirement, switch ideas to an
-  addressable kind (see "Open question" at the bottom). Decision logged there.
-- On post, the client also self-upvotes (matches the original), see kind 7 below.
+- **Editing:** kind 1111 is append-only. Edit is done via NIP-09 delete + repost (a new idea id).
+  If in-place edit that preserves votes/replies becomes a hard requirement, ideas switch to an
+  addressable kind (see the decision at the bottom).
+- On post, the client also self-upvotes, see kind 7 below.
 
 ## Reply = nested community comment (kind 1111)
 
@@ -160,14 +156,15 @@ to ideas and replies (both kind 1111).
 ### The counting problem (central trade-off)
 
 Reactions are append-only and unauthenticated. There is no on-protocol vote total. Strategy:
+
 - **Dedupe to latest-per-pubkey** (a user can publish many kind-7s; keep their newest, treat `+`/`-`
   as a toggle/flip). Score = (`+` count) - (`-` count) over deduped voters.
-- **Authoritative counts need aggregation.** v1: client-side aggregation over the board subscription
-  (works to moderate scale, cached in IndexedDB via NDK). Production scale: a separate always-on
+- **Authoritative counts need aggregation.** Client-side aggregation over the board subscription works
+  to moderate scale (cached in IndexedDB via NDK). At production scale, a separate always-on
   **indexer** (subscribes to all `#e` reactions for tracked ideas, dedupes, persists an integer score)
-  that the Next.js server reads for SSR/sort. Never trust a relay-returned count.
+  serves the Next.js server for SSR/sort. Never trust a relay-returned count.
 - **Sybil:** pubkeys are free. Rank by a Web-of-Trust-weighted score (logged-in / NIP-05 / social-graph
-  distance) and show the raw reaction number separately. See [DESIGN.md](./DESIGN.md).
+  distance) and show the raw reaction number separately.
 
 ## Status + moderation = NIP-32 labels (kind 1985), owner/mod authored
 
@@ -176,6 +173,7 @@ owner or a moderator** (a pubkey in the community's `p`/moderator tags). Clients
 time; latest-from-authorized-author wins per (target, namespace). Custom reverse-DNS namespaces.
 
 Status (the 9-state enum):
+
 ```json
 {
   "kind": 1985,
@@ -189,10 +187,12 @@ Status (the 9-state enum):
   ]
 }
 ```
+
 Values: `open | under-review | backlog | planned | in-progress | implemented | declined | duplicate | closed`.
 For `duplicate`, add `["e", "<canonical-idea-id>", "<relay>", "duplicate-of"]`.
 
 Other moderation labels (same shape, different namespace/value):
+
 - **pin:** `["L","app.nostr-userinput.pin"]`, `["l","pinned",...]`, `e`=idea, `a`=board. Unpin = new label `unpinned` or NIP-09 delete.
 - **lock:** `["L","app.nostr-userinput.lock"]`, `["l","locked",...]`, `e`=idea. The event `created_at` is the lock cutoff (replies after it are hidden).
 - **hide:** `["L","app.nostr-userinput.moderation"]`, `["l","hidden",...]`, `e`=target, `a`=board.
@@ -203,7 +203,7 @@ column, optionally a NIP-51 kind 30003 set (`d`=`roadmap-<status>`, ordered `e` 
 
 Why labels over a custom addressable status kind: interoperable (1985 is a known kind, indexable by
 `#l`/`#L`), trivially filtered by author, latest-wins. The addressable alternative gives exactly-one
-current value and in-place edit but no interop. We use labels; revisit only if label churn hurts.
+current value and in-place edit but no interop. Labels win; revisit only if label churn hurts.
 
 ## Moderators / membership
 
@@ -216,7 +216,7 @@ current value and in-place edit but no interop. We use labels; revisit only if l
 
 ## Optional approval flow = NIP-72 (kind 4550)
 
-Only used when a board sets `moderation_mode=curated`. A moderator publishes a 4550 referencing the
+Used only when a board sets `moderation_mode=curated`. A moderator publishes a 4550 referencing the
 post; the client then only renders posts that have an approval from an authorized pubkey. The 4550
 `content` carries the full stringified original post for resilience.
 
@@ -237,23 +237,25 @@ post; the client then only renders posts that have an approval from an authorize
 ## Identity, handles, sharing
 
 - **Profiles:** kind 0 (`name`, `about`, `picture`, `nip05`, `lud16` for zaps, `banner`, `website`).
-- **Handles:** NIP-05 (`name@domain`). We serve `/.well-known/nostr.json` for our own board/org handles
-  (lowercase hex pubkeys, `Access-Control-Allow-Origin: *`, no redirects). Verify a profile's `nip05`
-  by matching the returned hex to the pubkey before showing a verified chip.
+- **Handles:** NIP-05 (`name@domain`). The app serves `/.well-known/nostr.json` for its own board/org
+  handles (lowercase hex pubkeys, `Access-Control-Allow-Origin: *`, no redirects). Verify a profile's
+  `nip05` by matching the returned hex to the pubkey before showing a verified chip.
 - **Relay routing:** NIP-65 outbox (kind 10002). Never hardcode one relay set. Read an author's events
   from their write relays; when publishing, also send to the read relays of every `p`-tagged recipient.
 - **Share links:** `naddr` for a board (encodes the 34550 coordinate + relay hints), `nevent` for an
   idea/reply. Use these in share buttons and URLs.
-- **Deep-link discovery:** publish our own NIP-89 kind 31990 handler (with `k` tags for 34550 and 1111)
-  so other clients can open our boards/ideas.
+- **Deep-link discovery:** publish a NIP-89 kind 31990 handler (with `k` tags for 34550 and 1111)
+  so other clients can open the boards/ideas.
 
 ## Signing
 
 One `Signer` interface, three implementations behind a React context (see [STACK.md](./STACK.md) for
 exact NDK classes):
-- **NIP-07** browser extension (`window.nostr`) — primary web path.
-- **NIP-46** remote signer — `bunker://` paste and `nostrconnect://` QR, for users without an extension.
-- **nsec** private key — power-user fallback.
+
+- **NIP-07** browser extension (`window.nostr`): primary web path.
+- **NIP-46** remote signer: `bunker://` paste and `nostrconnect://` QR, for users without an extension.
+- **nsec** private key: power-user fallback.
+
 All signing is client-side only. Private keys never touch the server.
 
 ## Canonical query patterns
@@ -268,10 +270,9 @@ All signing is client-side only. Private keys never touch the server.
 | A user's boards | `{"kinds":[34550],"authors":["<pubkey>"]}` |
 | Discovery of boards | `{"kinds":[34550]}` across discovery relays (+ a seeded/featured list) |
 
-## DECIDED: idea = kind 1111
+## Decided: idea = kind 1111
 
-Resolved 2026-06-15: ideas are **NIP-72 kind 1111** (append-only, single-query, interoperable, renders
-in other Nostr comment clients). Editing an idea is delete + repost (NIP-09 + new event); the UI will
-warn that an edit resets votes/replies. We are not using an addressable idea kind. Revisit only if
-edit-preserving-votes becomes a hard requirement.
-</content>
+Ideas are **NIP-72 kind 1111** (append-only, single-query, interoperable, renders in other Nostr
+comment clients). Editing an idea is delete + repost (NIP-09 + new event); the UI warns that an edit
+resets votes/replies. There is no addressable idea kind. Revisit only if edit-preserving-votes becomes
+a hard requirement.

@@ -1,39 +1,26 @@
-# INDEXER.md — Voxboard Aggregator
+# Indexer: the Voxboard aggregator
 
-Built **up front** (M1), not deferred. Nostr has no on-protocol vote total: reactions (kind 7) are
-append-only and unauthenticated, so authoritative counts, sorting, status, and zap totals require an
-aggregator that subscribes to the network, dedupes, and serves the result. This is that service.
+Nostr has no on-protocol vote total: reactions (kind 7) are append-only and unauthenticated, so authoritative counts, sorting, status, and zap totals require an aggregator that subscribes to the network, dedupes, and serves the result. This is that service.
 
 ## Why it exists
 
-- **Vote counts:** dedupe kind-7 reactions to latest-per-pubkey (a pubkey can publish many; `+`/`-` is a
-  toggle), then score = upvotes - downvotes. No relay guarantees it returns all reactions, so the client
-  alone cannot count reliably at scale.
-- **Sort:** "Top" and "Trending" need a maintained tally; you cannot sort a roadmap by a number that
-  does not exist on-protocol.
-- **Status / moderation:** collapse kind-1985 labels to one current value per idea, honoring only labels
-  authored by the board owner or a moderator (read [PROTOCOL.md](./PROTOCOL.md) trust model).
+- **Vote counts:** dedupe kind-7 reactions to latest-per-pubkey (a pubkey can publish many; `+`/`-` is a toggle), then score = upvotes - downvotes. No relay guarantees it returns all reactions, so the client alone cannot count reliably at scale.
+- **Sort:** "Top" and "Trending" need a maintained tally; you cannot sort by a number that does not exist on-protocol.
+- **Status / moderation:** collapse kind-1985 labels to one current value per idea, honoring only labels authored by the board owner or a moderator (see the [PROTOCOL.md](./PROTOCOL.md) trust model).
 - **Zaps:** sum sats from kind-9735 zap receipts per idea/reply; compute top-zappers.
-- **Web-of-Trust:** weight votes and rank anti-spam by social-graph distance (phase: M4/M5).
+- **Web-of-Trust:** weight votes and rank anti-spam by social-graph distance.
 
-The write path never goes through here: clients sign and publish to relays directly. The aggregator is
-**read-only** and **never holds keys**.
+The write path never goes through here: clients sign and publish to relays directly. The aggregator is **read-only** and **never holds keys**.
 
 ## Technology
 
-Cloudflare **Worker + Durable Object + D1** (chosen for fit with the team's stack and because a Durable
-Object is purpose-built for persistent, stateful WebSocket coordination):
+Cloudflare **Worker + Durable Object + D1**. A Durable Object is purpose-built for persistent, stateful WebSocket coordination:
 
-- **Durable Object per board** (shard large boards if needed). Uses **hibernatable WebSockets** to hold
-  a long-lived subscription to the board's relays (from the community's `relay` tags + NIP-65), so it
-  survives idle without burning a connection.
-- **DO SQLite storage** for hot per-board state (idea scores, statuses, zap totals, reply counts,
-  pin/lock/hide/ban). **D1** for cross-board/global queries (discovery, trending across boards,
-  WoT graph).
+- **Durable Object per board** (shard large boards if needed). Uses **hibernatable WebSockets** to hold a long-lived subscription to the board's relays (from the community's `relay` tags + NIP-65), so it survives idle without burning a connection.
+- **DO SQLite storage** for hot per-board state (idea scores, statuses, zap totals, reply counts, pin/lock/hide/ban). **D1** for cross-board/global queries (discovery, trending across boards, WoT graph).
 - A front **Worker** routes HTTP requests to the right board DO and serves the read API.
 
-Alternative if we ever leave Cloudflare: a Node service (Fly.io/Railway) running a long-lived
-NDK/SimplePool subscriber + Postgres. Same contract; swap the host. The API below is the stable surface.
+Alternative host: a Node service (Fly.io/Railway) running a long-lived NDK/SimplePool subscriber + Postgres. Same contract; swap the host. The API below is the stable surface.
 
 ## What it ingests (per tracked board, coordinate `34550:<owner>:<slug>`)
 
@@ -47,9 +34,7 @@ NDK/SimplePool subscriber + Postgres. Same contract; swap the host. The API belo
 | `{"kinds":[0],"authors":[...]}` | author profiles (for chips, WoT seeds) |
 | `{"kinds":[10002],"authors":[...]}` | outbox relay lists (to widen subscriptions) |
 
-**Verification:** recompute event id (canonical NIP-01 serialization) and check the Schnorr signature
-(`nostr-tools/pure`, optionally `nostr-wasm`) before counting. Relays are untrusted. Honor NIP-09
-deletions (kind 5) by hiding locally.
+**Verification:** recompute event id (canonical NIP-01 serialization) and check the Schnorr signature (`nostr-tools/pure`, optionally `nostr-wasm`) before counting. Relays are untrusted. Honor NIP-09 deletions (kind 5) by hiding locally.
 
 ## Read API (stable contract the web app depends on)
 
@@ -70,18 +55,8 @@ GET /v1/board/:coord/moderation
 ```
 
 - The **Next server** reads these in `generateMetadata` / OG / board SSR (cached with `use cache`).
-- The **client** reads them for instant counts, then live `useSubscribe` corrects in real time
-  (the aggregator is the source of truth for totals; subscriptions keep the UI live between polls).
+- The **client** reads them for instant counts, then live `useSubscribe` corrects in real time: the aggregator is authoritative for totals, and subscriptions keep the UI live between polls.
 
 ## Lifecycle
 
-A board is "tracked" when first requested (lazy) or seeded (featured boards). The DO backfills history
-on first track (paged `querySync`), then stays live. Cold boards hibernate. No board's keys or content
-are mutated here; deleting the DO loses only the cache, which rebuilds from relays.
-
-## Phasing
-
-- **M1:** DO subscription + vote dedupe/score + status collapse + the ideas/stats/roadmap/moderation API.
-- **M4:** zap totals + top-zappers; begin WoT scoring.
-- **M5:** D1 cross-board trending, WoT vote-weighting at scale, backfill robustness, monitoring.
-</content>
+A board is "tracked" when first requested (lazy) or seeded (featured boards). The DO backfills history on first track (paged `querySync`), then stays live. Cold boards hibernate. No board's keys or content are mutated here; deleting the DO loses only the cache, which rebuilds from relays.
