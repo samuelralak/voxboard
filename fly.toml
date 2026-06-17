@@ -7,9 +7,12 @@ primary_region = "fra"   # Frankfurt (EU). `flyctl platform regions` to change (
 [build]
   dockerfile = "Dockerfile"
   [build.args]
-    # NEXT_PUBLIC_* is INLINED at `next build`; empty for v1. Set later via
+    # NEXT_PUBLIC_* is INLINED at `next build`; empty for v1. Set via
     # `fly deploy --build-arg NEXT_PUBLIC_INDEXER_URL=https://...` when the indexer ships.
     NEXT_PUBLIC_INDEXER_URL = ""
+    # Set to the attestation service URL to enable the board create/edit auto-attest hook, e.g.
+    # `fly deploy --build-arg NEXT_PUBLIC_ATTESTATION_URL=https://voxboard-attestation.fly.dev`.
+    NEXT_PUBLIC_ATTESTATION_URL = ""
 
 [env]
   NODE_ENV = "production"

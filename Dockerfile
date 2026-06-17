@@ -34,6 +34,9 @@ COPY . .
 # deferred -> apps/web/lib/indexer.ts no-ops). Passed via fly.toml [build.args] / `fly deploy --build-arg`.
 ARG NEXT_PUBLIC_INDEXER_URL=""
 ENV NEXT_PUBLIC_INDEXER_URL=${NEXT_PUBLIC_INDEXER_URL}
+# The attestation service base URL the board create/edit hook posts to (empty = attestation off).
+ARG NEXT_PUBLIC_ATTESTATION_URL=""
+ENV NEXT_PUBLIC_ATTESTATION_URL=${NEXT_PUBLIC_ATTESTATION_URL}
 # Requires output:'standalone' + outputFileTracingRoot=repo root in next.config.ts.
 RUN npm run build -w web
 

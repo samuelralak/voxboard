@@ -1,0 +1,41 @@
+# fly.toml — Voxboard attestation signer (apps/attestation). A small privileged service that holds the
+# platform issuer key (ATTESTATION_PRIVATE_KEY, set as a Fly secret) and signs the strict-allowlist set +
+# per-board labels. Deploy from the repo ROOT (the build context needs all workspaces):
+#   fly deploy --config apps/attestation/fly.toml --dockerfile apps/attestation/Dockerfile
+
+app = "voxboard-attestation"
+primary_region = "fra"   # Frankfurt (EU), same region as the web app
+
+[build]
+  dockerfile = "apps/attestation/Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  # ATTESTATION_ENV pins the env-scoped namespace; MUST match the web app's ATTESTATION_ENV (or NODE_ENV).
+  ATTESTATION_ENV = "production"
+  # ATTESTATION_PUBLIC_URL is the trusted origin for the NIP-98 `u` pin (required in production).
+  ATTESTATION_PUBLIC_URL = "https://voxboard-attestation.fly.dev"
+  # Secrets set via `fly secrets`: ATTESTATION_PRIVATE_KEY, ATTESTATION_PUBKEY, ATTESTATION_OPERATORS.
+
+[http_service]
+  internal_port = 8080        # MUST match the server PORT (set in the Dockerfile)
+  force_https = true
+  auto_stop_machines = "stop" # scale-to-zero when idle
+  auto_start_machines = true
+  min_machines_running = 0    # cold start on first request; attest is infrequent
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 40
+  [[http_service.checks]]
+    grace_period = "5s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

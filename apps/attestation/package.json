@@ -5,9 +5,10 @@
   "type": "module",
   "description": "Voxboard attestation signer: the platform issuer key signs the strict-allowlist set (carrier 1) + per-board labels (carrier 2). The first slice of the future Node/Fly indexer. See docs/ATTESTATION.md.",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
     "cli": "tsx src/cli.ts",
+    "bundle": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node22 --outfile=dist/server.mjs --packages=bundle",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
     "typescript": "^5.7.0",
     "vitest": "^3.0.0"
   }

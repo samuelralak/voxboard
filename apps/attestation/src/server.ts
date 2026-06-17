@@ -12,7 +12,6 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { fileURLToPath } from "node:url";
 import { isHex64, now, parseCommunityCoordinate, sha256Hex } from "@voxboard/protocol";
 import { createSigner, type Signer } from "./signer";
 import { configuredRelays, withRelayClient, type RelayClient } from "./relays";
@@ -295,6 +294,4 @@ export function start(env: NodeJS.ProcessEnv = process.env): void {
     );
   });
 }
-
-// auto-start only when run directly (node src/server.ts), never when imported by a test
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) start();
+// The process entrypoint is main.ts (which calls start()); this module is import-safe for tests.
