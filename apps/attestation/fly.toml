@@ -1,13 +1,12 @@
 # fly.toml — Voxboard attestation signer (apps/attestation). A small privileged service that holds the
 # platform issuer key (ATTESTATION_PRIVATE_KEY, set as a Fly secret) and signs the strict-allowlist set +
-# per-board labels. Deploy from the repo ROOT (the build context needs all workspaces):
-#   fly deploy --config apps/attestation/fly.toml --dockerfile apps/attestation/Dockerfile
+# per-board labels. Deploy from the repo ROOT so the build context (cwd) includes all workspaces. The
+# Dockerfile is passed on the CLI (NOT via [build].dockerfile, which Fly resolves relative to this config's
+# own directory and would double the path):
+#   fly deploy --config apps/attestation/fly.toml --dockerfile apps/attestation/Dockerfile --remote-only
 
 app = "voxboard-attestation"
 primary_region = "fra"   # Frankfurt (EU), same region as the web app
-
-[build]
-  dockerfile = "apps/attestation/Dockerfile"
 
 [env]
   NODE_ENV = "production"
