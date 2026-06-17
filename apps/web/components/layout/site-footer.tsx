@@ -4,43 +4,52 @@ import { Github01Icon, FavouriteIcon } from "@hugeicons/core-free-icons";
 import { Shell } from "./shell";
 
 const REPO_URL = "https://github.com/samuelralak/voxboard";
+const NIPS_URL = "https://github.com/nostr-protocol/nips";
 
 /**
- * App footer. Static Server Component, rendered through <Shell> so its content edges align with the
- * page and header. Brand on the left; on the right, the source link, a quiet Donate affordance (the
- * sats hue, so support stands apart from the utility links), and the Nostr provenance.
+ * App footer. Static Server Component that bookends the header: same <Shell> edges, and links styled like
+ * the header nav (h-9 pills, color-only hover, accent focus ring) so the chrome feels of a piece. The
+ * left half carries identity (wordmark + a one-line provenance); the right half carries the two actions.
+ * Donate wears the sats hue, so support reads apart from the source link.
  */
 export function SiteFooter() {
   return (
     <footer className="border-t border-border">
-      <Shell className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 py-6 text-sm text-muted">
-        <span className="font-display text-base font-semibold tracking-tight text-ink">Voxboard</span>
-        <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
+      <Shell className="flex flex-col gap-5 py-8 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div>
+          <span className="font-display text-base font-semibold tracking-tight text-ink">Voxboard</span>
+          <p className="mt-1 text-sm text-muted">
+            Open feedback boards on{" "}
+            <a
+              href={NIPS_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline decoration-border underline-offset-4 transition-colors hover:text-ink hover:decoration-ink"
+            >
+              Nostr
+            </a>
+          </p>
+        </div>
+
+        {/* Pull the nav left by the link padding so the first item aligns to the content edge on mobile;
+            on sm+ it sits at the right edge like the header nav. */}
+        <nav className="-ml-3 flex items-center gap-0.5 sm:ml-0">
           <a
             href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label="Voxboard on GitHub"
-            className="inline-flex items-center gap-1.5 transition-colors hover:text-ink"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             <HugeiconsIcon icon={Github01Icon} size={16} strokeWidth={2} />
-            <span className="hidden sm:inline">GitHub</span>
+            GitHub
           </a>
-          <Link href="/donate" className="inline-flex items-center gap-1.5 transition-colors hover:text-ink">
+          <Link
+            href="/donate"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm text-muted transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
             <HugeiconsIcon icon={FavouriteIcon} size={16} strokeWidth={2} className="text-zap" />
             Donate
           </Link>
-          <span>
-            Feedback boards on{" "}
-            <a
-              href="https://github.com/nostr-protocol/nips"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-ink underline decoration-border underline-offset-4 hover:decoration-ink"
-            >
-              Nostr
-            </a>
-          </span>
         </nav>
       </Shell>
     </footer>
