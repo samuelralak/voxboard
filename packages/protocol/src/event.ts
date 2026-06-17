@@ -14,8 +14,14 @@ export interface EventTemplate {
   content: string;
 }
 
-const HEX64 = /^[0-9a-f]{64}$/;
+/** Canonical 64-char lowercase hex (an event id or pubkey). The single source of truth for this shape. */
+export const HEX64 = /^[0-9a-f]{64}$/;
 const HEX128 = /^[0-9a-f]{128}$/;
+
+/** True if `value` is canonical 64-char lowercase hex. Lowercase the input first if case-insensitive. */
+export function isHex64(value: string): boolean {
+  return HEX64.test(value);
+}
 
 /** NIP-01 signed event envelope. */
 export const nostrEventSchema = z.object({

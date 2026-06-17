@@ -220,6 +220,27 @@ export function attestedCoordinates(set: AttestationSet): Set<string> {
 }
 
 /**
+ * From a list of ALREADY Schnorr-verified events, pick the latest issuer-authored allowlist set: highest
+ * created_at, tiebroken by lowest event id (NIP-01), so every reader converges on the same authoritative
+ * set. The caller MUST have verified each event's signature first (this only pins issuer + namespace +
+ * structure). Shared by the signer (issue.ts) and the web discover gate so they can never drift.
+ */
+export function selectLatestAttestationSet(
+  verifiedEvents: readonly NostrEvent[],
+  issuerPubkey: string,
+  namespace: string,
+): AttestationSet | null {
+  return (
+    verifiedEvents
+      .map((e) => verifyAttestationSet(e, issuerPubkey, namespace))
+      .filter((s): s is AttestationSet => s !== null)
+      .sort((a, b) =>
+        b.createdAt !== a.createdAt ? b.createdAt - a.createdAt : a.raw.id < b.raw.id ? -1 : a.raw.id > b.raw.id ? 1 : 0,
+      )[0] ?? null
+  );
+}
+
+/**
  * Current attested-state per board coordinate from the issuer's per-board labels: latest label per
  * coordinate wins (a later "delisted" supersedes an earlier "attested"), tiebreak lowest event id (NIP-01).
  * Only labels authored by the pinned issuer count; the caller verifies signatures first.
@@ -262,4 +283,33 @@ export function isBoardAttested(
 ): boolean {
   const label = collapseAttestationLabels(labels, issuerPubkey, namespace).get(coordinate);
   return !!label && label.attested && label.eventId === currentEventId;
+}
+
+export interface AllowlistDecision {
+  /** the attested coordinates to filter discover to, or null to apply NO filter (show everything) */
+  coords: Set<string> | null;
+  source: "live" | "cache" | "empty" | "unconfigured" | "open-blind";
+}
+
+/**
+ * The discover fail-mode policy (pure), given a re-verified allowlist set read and the reachability signal.
+ * This is the single highest-judgment knob (see docs/ATTESTATION.md), so it lives here, tested:
+ *   - not configured                  -> no filter (attestation is off in this deployment)
+ *   - a verified set was read         -> filter to its coordinates (the normal path; caller caches it)
+ *   - no set, but relays DID respond  -> the allowlist is genuinely empty -> show nothing
+ *   - no set, NO relay responded (blind) + a cached last-known-good -> use the cache (don't blank discover)
+ *   - blind AND no cache              -> fail OPEN (show everything) rather than blank discover on a total
+ *                                        outage with zero prior state (the allowlist re-applies once relays return)
+ */
+export function decideAllowlist(input: {
+  configured: boolean;
+  latestCoords: readonly string[] | null;
+  responded: number;
+  cache: Set<string> | null;
+}): AllowlistDecision {
+  if (!input.configured) return { coords: null, source: "unconfigured" };
+  if (input.latestCoords) return { coords: new Set(input.latestCoords), source: "live" };
+  if (input.responded > 0) return { coords: new Set(), source: "empty" };
+  if (input.cache) return { coords: input.cache, source: "cache" };
+  return { coords: null, source: "open-blind" };
 }

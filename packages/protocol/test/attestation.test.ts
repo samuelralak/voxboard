@@ -12,6 +12,8 @@ import {
   attestedCoordinates,
   collapseAttestationLabels,
   isBoardAttested,
+  decideAllowlist,
+  selectLatestAttestationSet,
 } from "../src/attestation.js";
 
 // 64-char hex identities
@@ -157,6 +159,27 @@ describe("attestation set (carrier 1 — the discover allowlist)", () => {
   });
 });
 
+describe("selectLatestAttestationSet (shared latest-wins selection)", () => {
+  it("picks the newest created_at, dropping foreign-issuer and wrong-namespace sets", () => {
+    const old = asEvent(buildAttestationSet({ coordinates: [COORD], namespace: NS, createdAt: 100 }), ISSUER);
+    const newer = asEvent(buildAttestationSet({ coordinates: [COORD, COORD2], namespace: NS, createdAt: 200 }), ISSUER);
+    const foreign = asEvent(buildAttestationSet({ coordinates: [COORD], namespace: NS, createdAt: 300 }), IMPOSTER);
+    const staging = asEvent(buildAttestationSet({ coordinates: [COORD], namespace: STAGING_NS, createdAt: 300 }), ISSUER);
+    const latest = selectLatestAttestationSet([old, newer, foreign, staging], ISSUER, NS);
+    expect(latest?.coordinates).toEqual([COORD, COORD2]); // the issuer's newest in-namespace set
+  });
+
+  it("tiebreaks an equal created_at by lowest event id (deterministic across readers)", () => {
+    const lowId = asEvent(buildAttestationSet({ coordinates: [COORD], namespace: NS, createdAt: 100 }), ISSUER, "0".repeat(63) + "1");
+    const highId = asEvent(buildAttestationSet({ coordinates: [COORD, COORD2], namespace: NS, createdAt: 100 }), ISSUER, "f".repeat(64));
+    expect(selectLatestAttestationSet([highId, lowId], ISSUER, NS)?.coordinates).toEqual([COORD]); // lowest id wins
+  });
+
+  it("returns null when nothing verifies", () => {
+    expect(selectLatestAttestationSet([], ISSUER, NS)).toBeNull();
+  });
+});
+
 describe("coordinate canonicalization on parse", () => {
   it("parseAttestationSet lowercases the pubkey segment and de-dupes case-variants of the same board", () => {
     const event: NostrEvent = {
@@ -179,6 +202,41 @@ describe("coordinate canonicalization on parse", () => {
       ISSUER,
     );
     expect(parseAttestationLabel(event, NS)?.coordinate).toBe(COORD);
+  });
+});
+
+describe("decideAllowlist (discover fail mode)", () => {
+  const cache = new Set([COORD]);
+
+  it("applies no filter when attestation is not configured", () => {
+    expect(decideAllowlist({ configured: false, latestCoords: null, responded: 0, cache: null })).toEqual({
+      coords: null,
+      source: "unconfigured",
+    });
+  });
+
+  it("filters to the verified set's coordinates on a live read", () => {
+    const d = decideAllowlist({ configured: true, latestCoords: [COORD, COORD2], responded: 3, cache: null });
+    expect(d.source).toBe("live");
+    expect([...(d.coords ?? [])]).toEqual([COORD, COORD2]);
+  });
+
+  it("shows nothing when relays responded but no set exists (genuinely empty)", () => {
+    const d = decideAllowlist({ configured: true, latestCoords: null, responded: 2, cache });
+    expect(d.source).toBe("empty");
+    expect(d.coords?.size).toBe(0);
+  });
+
+  it("uses last-known-good cache on a blind read", () => {
+    const d = decideAllowlist({ configured: true, latestCoords: null, responded: 0, cache });
+    expect(d.source).toBe("cache");
+    expect(d.coords).toBe(cache);
+  });
+
+  it("fails OPEN on a blind read with no cache (never blanks discover on a total outage)", () => {
+    const d = decideAllowlist({ configured: true, latestCoords: null, responded: 0, cache: null });
+    expect(d.source).toBe("open-blind");
+    expect(d.coords).toBeNull();
   });
 });
 
