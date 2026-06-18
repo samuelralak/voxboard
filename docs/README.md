@@ -9,6 +9,7 @@ Tailwind v4, and NDK. These docs describe the protocol model, the stack, and the
 | Doc | What it covers |
 |---|---|
 | [PROTOCOL.md](./PROTOCOL.md) | The Nostr event model: every concept (board, idea, reply, vote, status, moderation, zap) mapped to a kind and tag shape, with full event JSON. |
+| [PROTOCOL-DECISION.md](./PROTOCOL-DECISION.md) | Why boards are NIP-72: the requirements that forced the choice, the threat model, NIP-72's two real gaps (relay routing, no write-time spam gate), and how we close them. |
 | [STACK.md](./STACK.md) | Pinned library versions, the NDK v2/v3 split, and the Next.js-for-Nostr patterns (thin server shell, fat client app). |
 | [INDEXER.md](./INDEXER.md) | The aggregator that maintains authoritative vote counts, status, zap totals, and Web-of-Trust ranking. |
 | [ATTESTATION.md](./ATTESTATION.md) | Platform attestation: filtering discover to vouched boards via an issuer-signed allowlist set and per-board labels. |

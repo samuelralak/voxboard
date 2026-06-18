@@ -60,7 +60,8 @@ Addressable, authored by the board owner. The owner pubkey is the root of trust;
 > purpose. NIP-29 puts the relay in charge of the group: the relay decides who joins and what gets posted.
 > NIP-72 puts the owner in charge: a board is an event the owner signs, and it reads from any relay.
 > Switching to NIP-29 would tie each board to one relay and break the non-custodial model. NIP-72 still
-> works, and the rest (comments, votes, labels, zaps) is plain Nostr either way.
+> works, and the rest (comments, votes, labels, zaps) is plain Nostr either way. The full reasoning, with
+> the requirements, threat model, and NIP-72's two real gaps, is in [PROTOCOL-DECISION.md](./PROTOCOL-DECISION.md).
 
 ```json
 {
