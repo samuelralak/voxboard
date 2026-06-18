@@ -25,13 +25,15 @@ the protocol.
 | | NIP-72 | NIP-29 | Custom kind |
 |---|---|---|---|
 | Authority | owner's key | the relay | owner's key |
-| Portable | yes | bound to host relay | yes |
-| Shape | posts + approval | membership + messages | ours to define |
-| Interop | kind 1111 | NIP-29 clients only | none |
+| Portable | yes | no (relay-hosted) | yes |
+| Shape | posts + approval | group (members, roles) | ours to define |
+| Interop | kind 1111 | NIP-29-specific group | none |
 | Write-time spam gate | none (gap 2) | relay enforces | none |
 
-- **NIP-29** fails requirements 1 and 2 by design: the relay is the authority, and the group is bound to it.
-  Good for chat and closed groups, wrong for a portable, owner-owned board.
+- **NIP-29** fails requirements 1 and 2 by design: the relay generates the group's state and enforces who
+  can post, and the group is hosted on the relay (forkable, but each copy is its own relay-governed state,
+  not a portable owner record). Right for relay-governed groups (chat, forums, closed communities), wrong
+  for a portable, owner-owned board.
 - **Custom kind** meets 1 to 3 but discards interop and existing tooling to rebuild the same thing.
 - **NIP-72** is the only candidate that meets 1, 2, 3, and 5.
 
@@ -80,7 +82,7 @@ None of this stops publication, only display.
 
 Fix: gate writes at the board's relays (allowlist, payment, proof-of-work, or WoT). The owner still signs
 the board; the relay enforces admission. This is why we kept NIP-72 over NIP-29: NIP-29 gates writes by
-making the relay own the group; NIP-72 lets the relay gate writes while the owner stays the root of trust.
+making the relay govern the group; NIP-72 lets the relay gate writes while the owner stays the root of trust.
 Cost: someone runs or picks gated relays. Until a board is actually spammed, open boards run on curated mode
 plus WoT plus reactive moderation.
 
